@@ -1,0 +1,86 @@
+---
+title: "Arenstorf Orbits"
+author: "Jeffrey Strickland"
+date: "2022-09-20"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Arenstorf Orbits
+
+Our next example, the Arenstorf problem, is from Astronomy, and describes the movement of a small body orbiting regularly around two larger objects, such as a spacecraft going between the Earth and the Moon. The two large bodies have mass m1 and m2 and move in a circular rotation (coordinates r1 and r2) in a plane, while the third body has negligible mass and is moving in the same plane.
+
+It was necessary to solve this problem in order to determine the path that the Apollo spacecraft had to take in its journey between the Earth and the Moon. The problem was solved by Arenstorf [1] and now it is an often used test problem for non-stiff solvers.
+
+If we define μ1 = m1/m1+m2 and μ2 = 1−μ1, then the equations are [1]:
+  
+$r^{..}_{1}=r_{1}+2r^{.}_{2}-μ_{2} \frac{r_{1}+μ_{1}}{D_{1}}-μ_{1} \frac{r_{1}+μ_{2}}{D_{2}}$
+   
+$r^{..}_{2}=r_{2}+2r^{.}_{1}-μ_{2} \frac{r_{2}}{D_{1}}-μ_{1} \frac{r_{2}}{D_{2}}$
+
+$D_{1}=((r_{1}+μ_{1})^{2}+r^{2}_{2})^{3/2}$ 
+  
+$D_{2}=((r_{1}+μ_{2})^{2}+r^{2}_{2})^{3/2}$
+  
+where $μ_{1}$ = 0.012277471. For certain values of the initial conditions, this problem has a periodic solution. One set of initial conditions with this property is: $r_{1}(0)=0.994$, $r_{2}(0) = 0$, $r^{.}_{1}(0)=0$, $r^{.}_{2}(0)=−2.00158510637908252240537862224$.
+
+
+Before solving these equations, we expand the second order equations in two first order ones $(r_{3} = r^{.}_{1}$ and $r_{4}=r^{.}_{2})$
+
+```{r}
+library(deSolve)
+Arenstorf <- function(t, r, p) {
+  D1 <- ((r[1] + mu1)^2 + r[2]^2)^(3/2)
+  D2 <- ((r[1] - mu2)^2 + r[2]^2)^(3/2)
+  dr1 <- r[3]
+  dr2 <- r[4]
+  dr3 <- r[1] + 2*r[4] - mu2*(r[1]+mu1)/D1 - mu1*(r[1]-mu2)/D2
+  dr4 <- r[2] - 2*r[3] - mu2*r[2]/D1 - mu1*r[2]/D2
+  return(list( c(dr1, dr2, dr3, dr4) ))
+}
+
+mu1 <- 0.012277471
+mu2 <- 1 - mu1
+
+yini <- c(r1 = 0.994, r2 = 0,
+          dr1 = 0, dr2 = -2.00158510637908252240537862224)
+
+times <- seq(from = 0, to = 18, by = 0.01)
+```
+
+We solve the above IVP with the fifth order Dormand and Prince method
+(DOPRI5(4) [8]):
+
+```{r}  
+out <- ode(func = Arenstorf, y = yini, times = times,
+           parms = 0, method = "ode45")
+```
+
+We can also solve the same problem with a second and third set of initial conditions:
+
+```{r}
+yini2 <- c(r1 = 0.994, r2 = 0,
+           dr1 = 0, dr2 = -2.0317326295573368357302057924)
+out2 <- ode(func = Arenstorf, y = yini2, times = times,
+            parms = 0, method = "ode45")
+yini3 <- c(r1 = 8.2, r2 = 0,
+           dr1 = 0, dr2 = -8.2)
+out3 <- ode(func = Arenstorf, y = yini3, times = times,
+            parms = 0, method = "ode45")
+```
+
+We end by first plotting the first two variables versus time for all three solutions, arranging the figures in two rows and two columns (mfrow). Then we plot the trajectories of the three runs (Fig. 3.4).
+
+```{r}
+plot(out, out2, out3, which = c("r1", "r2"),
+     mfrow = c(1, 1), col = "blue", lwd = 2,
+     xlab = "Ground Track")
+plot(out[ ,c("r1", "r2")], type = "l", lwd = 2,
+     xlab = "r1", ylab = "r2", main = "ODE Solutions 1,2")
+lines(out2[ ,c("r1", "r2")], lwd = 2, lty = 2)
+plot(out3[ ,c("r1", "r2")], type = "l", col = 'red', lwd = 2, lty = 3,
+     xlab = "r1", ylab = "r2", main = "Orbit")
+```

@@ -1,0 +1,272 @@
+---
+title: "Chapter_13"
+author: "Jeffrey Strickland"
+date: "2022-11-01"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, message=FALSE, fig.path='figures/', dpi=300, digits = 2)
+options(digits = 5, scipen = 100)
+```
+
+## Validation using TLE Test Cases
+
+### Original STR#3 SGP4 Test (sat#7)
+We use NORAD Catalog Number 11801 to validate the SGP4 propogator model. Note that for this satellite, the SGDP4 automatically selects the SGP4 model as the appropriate propagator.
+
+### NORAD Cat Num	11801 (SGD4 Propagator)
+
+```{r}
+library(asteRiskData)
+library(plotly)
+library(lazyeval)
+library(dplyr)
+library(pracma)
+
+#getLatestSpaceData (targets="all")
+
+targetTimes <- seq(0, 600, by=1)
+
+test_TLEs <- readTLE(paste0(path.package("asteRisk"), "/testTLE.txt"))
+str3.3<-test_TLEs[[3]]
+results_position_matrix3.3 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix3.3 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result <- sgdp4(n0=str3.3$meanMotion*((2*pi)/(1440)),
+                        e0=str3.3$eccentricity,
+                        i0=str3.3$inclination*pi/180,
+                        M0=str3.3$meanAnomaly*pi/180,
+                        omega0=str3.3$perigeeArgument*pi/180,
+                        OMEGA0=str3.3$ascension*pi/180,
+                        Bstar=str3.3$Bstar,
+                        initialDateTime=str3.3$dateTime, targetTime = targetTimes[i])
+    results_position_matrix3.3[i,] <- new_result[[1]]
+    results_velocity_matrix3.3[i,] <- new_result[[2]]
+}
+last_orb_propagation3.3 <- new_result
+results_position_matrix3.3 = cbind(results_position_matrix3.3, targetTimes)
+colnames(results_position_matrix3.3) <- c("x", "y", "z", "time")
+last_orb_propagation3.3
+
+```
+
+### NORAD Cat Num	11801 Orbital Parameters
+
+```{r}
+library(tidyr)
+col1 <- rbind("Object Name","NORAD Cat Num","Mean Motion", "Inclination", "Eccentricity","Mean Anomaly","Perigee Argument","Right Ascension","Bstar","Date-Time")
+col2 <- rbind(str3.3$objectName,str3.3$NORADcatalogNumber, str3.3$meanMotion, str3.3$eccentricity, str3.3$inclination, str3.3$meanAnomaly, str3.3$perigeeArgument, str3.3$ascension, str3.3$Bstar, str3.3$dateTime)
+tb1 <- cbind(col1,col2)
+knitr::kable(tb1)
+```
+
+
+## NORAD Cat Num	11801 Orbit Plot
+
+```{r}
+out<-as.data.frame(results_position_matrix3.3)
+p <- plot_ly(
+     out, x = out$x, y = out$y, z = out$z, sizess = c(1,1),
+     color = 'red', colors = c('aquamarine', 'dodgerblue')) %>%
+     add_markers() %>%
+     layout(
+         scene = list(xaxis = list(title = 'x position'),
+                      yaxis = list(title = 'y position'),
+                      zaxis = list(title = 'z position'))
+     ) 
+p
+
+```
+
+
+### TEME to LATLON Geodetic
+
+```{r}
+
+dateTime3.3 <- str3.3$dateTime
+
+ITRF_coordinates <- TEMEtoITRF(last_orb_propagation3.3$position,
+                               last_orb_propagation3.3$velocity,
+                               dateTime3.3)
+
+geodetic_matrix3.3 <- matrix(nrow=nrow(results_position_matrix3.3), ncol=3)
+
+for(i in 1:nrow(geodetic_matrix3.3)) {
+    new_dateTime <- as.character(as.POSIXct(dateTime3.3, tz="UTC") + 60*targetTimes[i])
+    new_geodetic <- TEMEtoLATLON(results_position_matrix3.3[i, 1:3]*1000,
+                                 new_dateTime)
+    geodetic_matrix3.3[i,] <- new_geodetic
+}
+colnames(geodetic_matrix3.3) <- c("latitude", "longitude", "altitude")
+
+```
+
+### NORAD Cat Num	11801 Ground Track
+
+```{r}
+library(ggmap)
+
+ggmap(get_map(c(left=-180, right=180, bottom=-80, top=80))) +
+    geom_point(data=as.data.frame(geodetic_matrix3.3), aes(x=longitude, y=latitude),
+             color="blue", size=1, alpha=0.8)
+
+```
+
+### NORAD Cat Num	11801 State Vectors
+
+```{r}
+out1 <- as.data.frame(results_position_matrix3.3)
+out2 <- as.data.frame(results_velocity_matrix3.3)
+chk <- cbind(out1,out2)
+c1<-sprintf(chk[1,], fmt = '%#.9f')
+c2<-sprintf(chk[121,], fmt = '%#.9f')
+c3<-sprintf(chk[241,], fmt = '%#.9f')
+c4<-sprintf(chk[361,], fmt = '%#.9f')
+c5<-sprintf(chk[481,], fmt = '%#.9f')
+c6<-sprintf(chk[601,], fmt = '%#.9f')
+c7<-sprintf(chk[721,], fmt = '%#.9f')
+c8<-sprintf(chk[841,], fmt = '%#.9f')
+c9<-sprintf(chk[961,], fmt = '%#.9f')
+c10<-sprintf(chk[1081,], fmt = '%#.9f')
+c11<-sprintf(chk[1201,], fmt = '%#.9f')
+c12<-sprintf(chk[1321,], fmt = '%#.9f')
+c13<-sprintf(chk[1441,], fmt = '%#.9f')
+c14<-sprintf(chk[1561,], fmt = '%#.9f')
+c15<-sprintf(chk[1681,], fmt = '%#.9f')
+c16<-sprintf(chk[1801,], fmt = '%#.9f')
+df1<-as.data.frame(rbind(c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16))
+df2<-data.frame(sprintf(df1$V4,fmt='%.5s'),df1$V1,df1$V2,df1$V3,df1$V5,df1$V6,df1$V7)
+colnames(df2) <- c("time", "x", "y" ,"z","V1", "V2", "V3")
+df2
+
+```
+
+### Original STR#3 SDP4 Test (sat#5)
+We use NORAD Catalog Number 09880 to validate the SDP4 propagator model. Note that for this satellite, the SGDP4 automatically selects the SDP4 model as the appropriate propagator.
+
+### NORAD Cat Num	09880 (SDP4 Propagator)
+
+```{r}
+library(asteRiskData)
+#getLatestSpaceData (targets="all")
+targetTimes <- seq(0, 1200, by=5)
+
+test_TLEs <- readTLE(paste0(path.package("asteRisk"), "/testTLE.txt"))
+str3.5<-test_TLEs[[5]]
+results_position_matrix3.5 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix3.5 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result <- sgdp4(n0=str3.5$meanMotion*((2*pi)/(1440)),
+                        e0=str3.5$eccentricity,
+                        i0=str3.5$inclination*pi/180,
+                        M0=str3.5$meanAnomaly*pi/180,
+                        omega0=str3.5$perigeeArgument*pi/180,
+                        OMEGA0=str3.5$ascension*pi/180,
+                        Bstar=str3.5$Bstar,
+                        initialDateTime=str3.5$dateTime, targetTime = targetTimes[i])
+    results_position_matrix3.5[i,] <- new_result[[1]]
+    results_velocity_matrix3.5[i,] <- new_result[[2]]
+}
+last_orb_propagation3.5 <- new_result
+results_position_matrix3.5 = cbind(results_position_matrix3.5, targetTimes)
+last_orb_propagation3.5
+
+colnames(results_position_matrix3.5) <- c("x", "y", "z", "time")
+
+```
+
+### NORAD Cat Num	09880 Orbital Parameters
+
+```{r}
+col1 <- rbind("Object Name","NORAD Cat Num","Mean Motion", "Inclination","Eccentricity","Mean Anomaly","Perigee Argument","Right Ascension","Bstar","Date-Time")
+col2 <- rbind(str3.5$objectName,str3.5$NORADcatalogNumber, str3.5$meanMotion, str3.5$eccentricity, str3.5$inclination, str3.5$meanAnomaly, str3.5$perigeeArgument, str3.5$ascension, str3.5$Bstar, str3.5$dateTime)
+tb2 <- cbind(col1,col2)
+knitr::kable(tb2)
+
+```
+
+
+### NORAD Cat Num	09880 Orbit Plot
+
+```{r}
+out<-as.data.frame(results_position_matrix3.5)
+p <- plot_ly(
+     out, x = out$x, y = out$y, z = out$z, sizess = c(1,1),
+     color = 'red', colors = c('aquamarine', 'dodgerblue')) %>%
+     add_markers() %>%
+     layout(
+         scene = list(xaxis = list(title = 'x position'),
+                      yaxis = list(title = 'y position'),
+                      zaxis = list(title = 'z position'))
+     ) 
+p
+```
+
+
+### TEME to LATLON Geodetic
+
+```{r}
+
+dateTime3.5 <- str3.5$dateTime
+
+ITRF_coordinates <- TEMEtoITRF(last_orb_propagation3.5$position,
+                               last_orb_propagation3.5$velocity,
+                               dateTime3.5)
+
+geodetic_matrix3.5 <- matrix(nrow=nrow(results_position_matrix3.5), ncol=3)
+
+for(i in 1:nrow(geodetic_matrix3.5)) {
+    new_dateTime <- as.character(as.POSIXct(dateTime3.5, tz="UTC") + 60*targetTimes[i])
+    new_geodetic <- TEMEtoLATLON(results_position_matrix3.5[i, 1:3]*1000,
+                                 new_dateTime)
+    geodetic_matrix3.5[i,] <- new_geodetic
+}
+colnames(geodetic_matrix3.5) <- c("latitude", "longitude", "altitude")
+
+```
+
+### NORAD Cat Num	09880 Ground Track
+
+```{r}
+library(ggmap)
+
+ggmap(get_map(c(left=-180, right=180, bottom=-80, top=80))) +
+    geom_point(data=as.data.frame(geodetic_matrix3.5), aes(x=longitude, y=latitude), 
+             color="blue", size=0.3, alpha=0.8)
+
+```
+
+### NORAD Cat Num	09880 State Vectors 
+
+```{r}
+
+out1 <- as.data.frame(results_position_matrix3.5)
+out2 <- as.data.frame(results_velocity_matrix3.5)
+chk2 <- cbind(out1,out2)
+
+d1<-sprintf(chk2[1,], fmt = '%#.9f')
+d2<-sprintf(chk2[25,], fmt = '%#.9f')
+d3<-sprintf(chk2[49,], fmt = '%#.9f')
+d4<-sprintf(chk2[73,], fmt = '%#.9f')
+d5<-sprintf(chk2[97,], fmt = '%#.9f')
+d6<-sprintf(chk2[121,], fmt = '%#.9f')
+d7<-sprintf(chk2[145,], fmt = '%#.9f')
+d8<-sprintf(chk2[169,], fmt = '%#.9f')
+d9<-sprintf(chk2[193,], fmt = '%#.9f')
+d10<-sprintf(chk2[217,], fmt = '%#.9f')
+d11<-sprintf(chk2[241,], fmt = '%#.9f')
+d12<-sprintf(chk2[265,], fmt = '%#.9f')
+d13<-sprintf(chk2[289,], fmt = '%#.9f')
+d14<-sprintf(chk2[313,], fmt = '%#.9f')
+d15<-sprintf(chk2[337,], fmt = '%#.9f')
+d16<-sprintf(chk2[361,], fmt = '%#.9f')
+df3<-as.data.frame(rbind(d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16))
+df4<-data.frame(sprintf(df3$V4,fmt='%.5s'), df3$V1, df3$V2, df3$V3, df3$V5, df3$V6, df3$V7)
+colnames(df4) <- c("time", "x", "y" ,"z","V1", "V2", "V3")
+
+df4
+
+```

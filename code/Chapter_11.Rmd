@@ -1,0 +1,807 @@
+---
+title: "Chapter_11"
+author: "Jeffrey Strickland"
+date: "2022-11-01"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, message=FALSE, fig.path='figures/', dpi=300, digits = 2)
+options(digits = 5, scipen = 100)
+```
+
+## Libraries
+
+```{r}
+library(asteRiskData)
+library(plotly)
+library(lazyeval)
+library(dplyr)
+library(pracma)
+```
+
+## Cartesian State to Keplerian Elements
+The conversion from the Cartesian state to the Keplerian elements has four special cases: elliptic inclined, circular inclined, elliptic equatorial, and circular equatorial. Certain orbital elements are undefined for some
+of the cases. For example, the right ascension of the ascending node, $\Omega$, is undefined for equatorial orbits. However, computer systems don’t handle undefined values gracefully. In this section, we’ll see how the orbital elements are defined for each of the special cases, and how GMAT calculates the orbital elements for each case.
+
+Given: r, v, and µ
+
+Find: a, e, i, omega, Omega, and nu.
+
+We begin by calculating the specific angular momentum and its magnitude.
+
+```{r}
+library(pracma)
+
+molniyaMass <- 1600
+molniyaCrossSection <- 15
+molniyaCd <- 2.2
+molniyaCr <- 1.2
+
+mu = 3.986004418e14 # gravitational parameter
+vM = 0.05*pi # between -Pi and +Pi
+r0 <- GCRF_coordinates$position #new_state1$position
+v0 <- GCRF_coordinates$velocity #new_state1$velocity
+
+h0 = pracma::cross(r0,v0) # h vector cross product;    Eq. (3.1)
+# all five norm type are the same for vectors
+h1 = norm(as.matrix(h0))                             # Eq. (3.2)
+hz = h0[3]
+
+id3 = as.vector(c(0,0,1))
+n0 = pracma::cross(id3, h0)                           # Eq. (3.3) 
+n1 = norm(as.matrix(n0))                              # Eq. (3.4)
+ 
+r1 <- norm(as.matrix(r0))                             # Eq. (3.5)
+v1 <- norm(as.matrix(v0))                             # Eq. (3.6)
+
+e0 <- ((v1^2-mu/v1)*r0-dot(r0,v0)*v0)/mu              # Eq. (3.7)
+e1 <- norm(as.matrix(e0))                             # Eq. (3.8)
+
+xi <- v1^2/2 - mu/r1                                  # Eq. (3.9)
+
+a0 = -mu/(2*xi)                                       # Eq. (3.10)
+
+i0 = acos(hz/h1)                                      # Eq. (3.11)
+
+```
+
+### Special Case 1: Non-circular, Inclined Orbit
+
+```{r}
+# CASE 1
+const5 <- e1>10e-11&i0>-10e-11&i0<=pi-10e-11
+const5A <- n0[2] < 0
+const5B <- e0[3] < 0
+const5C <- pracma::cross(r0,v0)<0
+if (const5 == TRUE){
+   Omega0 = acos(dot(n0,e0)/(n1*e1))         # Eq. (3.12)
+   omega0 = acos(dot(n0,e0)/(n1*r1))         # Eq. (3.13)
+   nu0    = acos(dot(e0,r0)/(e1*r1))         # Eq. (3.14)
+   if (const5A == TRUE){  
+       Omega0 = 2*pi-Omega0 
+      if (const5B == TRUE){
+         omega0 = 2*pi-omega0
+         if (const5C == TRUE){ 
+            nu0 = 2*pi - nu0
+            print(paste("-------------------------------"))
+            print(paste("CASE 1"))
+            print(paste("Omega =", Omega0))
+            print(paste("Omega =", omega0))
+            print(paste("Nu    =", nu0))
+            
+         }
+      }
+   }
+} else {
+  print(paste("Not CASE 1"))
+}
+
+```
+
+### Special Case 2: Non-circular, Equatorial Orbit
+
+```{r}
+# CASE 2
+const6 <- e1>10e-11&i0<10e-11&i0>pi-10e-11
+const6A <- e0[2] < 0
+const6B <- pracma::cross(r0,v0) < 0
+if (const6 == TRUE){
+   Omega0 =  0                              # Eq. (3.15)
+   omega0 = acos(e0[1]/e1)                  # Eq. (3.16)
+   nu0 = acos(dot(e0,r0)/(e1*r1))           # Eq. (3.17)
+  if (const6A == TRUE){  
+       omega0 = 2*pi-omega0 
+    if (const6B == TRUE){
+      nu0 = 2*pi-nu0
+      print(paste("-------------------------------"))
+      print(paste("CASE 2"))
+      print(paste("Omega =", Omega0))
+      print(paste("Omega =", omega0))
+      print(paste("Nu    =", nu0))
+      }
+    }
+  } else {
+  print(paste("Not CASE 2"))
+  }
+
+```
+
+### Special Case 3: Circular, Inclined Orbit
+
+```{r}
+# CASE 3
+const7 <- e1<10e-11&i0>=10e-11&i0<pi-10e-11
+const7A <- n0[2] < 0
+const7B <- r0[3] < 0
+if (const6 == TRUE){
+  Omega0 =  acos(n0[1]/n1)                  # Eq. (3.18)
+  omega0 = 0                                # Eq. (3.19)   
+  nu0 = acos(dot(n0,r0)/(n1*r1))            # Eq. (3.20)
+  if (const7A == TRUE){  
+       Omega0 = 2*pi-Omega0 
+    if (const7B == TRUE){
+      nu0 = 2*pi-nu0
+      print(paste("-------------------------------"))
+      print(paste("CASE 3"))
+      print(paste("Omega =", Omega0))
+      print(paste("Omega =", omega0))
+      print(paste("Nu    =", nu0))
+      }
+    }
+  } else {
+  print(paste("Not CASE 3"))
+  }
+
+```
+
+### Special Case 4: Circular, Equatorial Orbit
+
+```{r}
+# CASE 4
+const8 <- e1<10e-11&i0<10e-11&i0>pi-10e-11
+const8A <- r0[2] < 0
+if (const8 == TRUE){
+  Omega0 = 0                              # Eq. (3.21)
+  omega0 = 0                              # Eq. (3.22)
+  nu0 = acos(r0[1]/r1)                    # Eq. (3.23)
+  if (const8A == TRUE){
+    nu0 = 2*pi - nu0
+    print(paste("Omega =", Omega0))
+    print(paste("Omega =", omega0))
+    print(paste("Nu    =", nu0))
+  }
+} else {
+  print(paste("Not CASE 4"))
+}
+
+```
+
+## 3.1.3 Keplerian Elements to Cartesian State
+
+The transformation from the Keplerian elements to the Cartesian state is one of the most common state transformations in astrodynamics. We previously defined both state types and refer you to Tables 3.1 and 3.2 for their definitions. Below we show the algorithm to convert from the Keplerian elements to the Cartesian state.
+
+Give: a, e, i, Omega, omega, nu, and µ,
+Find: r and v
+
+```{r}
+
+#If |a(1−e)| < 0.001 then a singular conic section has been encountered while converting from the Keplerian elements to the Cartesian state. The radius of periapsis must be greater than 1 meter.
+
+const1 <- abs(a0*(1-e1))<0.001
+const2 <- 1+e1*cos(r1) < 1e-30
+const3 <- abs(1-e1) < 1e-7 
+const4 <- e1 > 1 & abs(vM)>=(pi-acos(1/e1))
+if (const1 == TRUE){
+  print("Warning: A nearly singular conic section was encountered while converting from the Keplerian elements to the Cartesian state.")
+} else if (const2 == TRUE){
+    print("Warning: A near infinite radius was encountered while converting from the Keplerian elements to the Cartesian state.")
+} else if (const3 == TRUE){
+  print("Warning: A nearly parabolic orbit was encountered while converting from the Keplerian elements to the Cartesian state. The Keplerian elements are undefined for a parabolic orbit.")
+} else if (const4 == TRUE){
+  limitTA = pi - acos(1/e1) # Eq. (3.24)
+  print(paste("Error: The TA value is not physically possible for a hyperbolic orbit with the input values of SMA and ECC.The allowed values are: −", limitTA, "< TA <", limitTA, "(degrees)"))
+} else {   
+p0 = round(a0*(1 - e1^2)/1e+9,4) # Eq. (3.25)
+radius = p0/(1+e1*cos(v1)) # Eq. (3.26)
+
+print(paste("semilatus rectum = ", p0, "(km)"))
+print(paste("r = ", radius, "(km)"))
+
+}
+
+```
+
+
+```{r}
+
+const1 <- abs(a0*(1-e1))<0.001
+
+if (const1 == TRUE){
+  print("Warning: A nearly singular conic section was encountered while converting from the Keplerian elements to the Cartesian state.")
+} else {   
+p0 = round(a0*(1 - e1^2)/1e+9,4)                              # Eq. (3.25)
+radius = p0/(1+e1*cos(v1))                                    # Eq. (3.26)
+
+print(paste("semilatus rectum = ", p0, "(km)"))
+print(paste("r = ", radius, "(km)"))
+
+}
+
+```
+
+```{r}
+const1 <- abs(a0*(1-e1))<0.001
+const2 <- 1+e1*cos(r1) < 1e-30
+
+if (const1 == TRUE){
+  print("Warning: A nearly singular conic section was encountered while converting from the Keplerian elements to the Cartesian state.")
+} else if (const2 == TRUE){
+    print("Warning: A near infinite radius was encountered while converting from the Keplerian elements to the Cartesian state.")
+} else {   
+p0 = round(a0*(1 - e1^2)/1e+9,4)                              # Eq. (3.25)
+radius = p0/(1+e1*cos(v1))                                    # Eq. (3.26)
+
+print(paste("semilatus rectum = ", p0, "(km)"))
+print(paste("r = ", radius, "(km)"))
+
+}
+
+```
+
+
+```{r}
+
+#If |a(1−e)| < 0.001 then a singular conic section has been encountered while converting from the Keplerian elements to the Cartesian state. The radius of periapsis must be greater than 1 meter.
+
+const1 <- abs(a0*(1-e1))<0.001
+const2 <- 1+e1*cos(GCRF_coordinates$velocity[2]) < 1e-30
+
+if (const1 == TRUE){
+  print("Warning: A nearly singular conic section was encountered while converting from the Keplerian elements to the Cartesian state.")
+} else if (const2 == TRUE){
+    print("Warning: A near infinite radius was encountered while converting from the Keplerian elements to the Cartesian state.")
+} else {   
+p0 = round(a0*(1 - e1^2)/1e+9,4) # Eq. (3.25)
+radius = p0/(1+e1*cos(v1)) # Eq. (3.26)
+
+print(paste("semilatus rectum = ", p0, "(km)"))
+print(paste("r = ", radius, "(km)"))
+
+}
+
+```
+
+```{r}
+
+const1 <- abs(a0*(1-e1))<0.00001
+const2 <- abs(1+e1*cos(r1)) < 1e-11
+const3 <- abs(1-e1) < 1e-7 
+
+if (const1 == TRUE){
+  print("Warning: A nearly singular conic section was encountered while converting from the Keplerian elements to the Cartesian state.")
+} else if (const2 == TRUE){
+    print("Warning: A near infinite radius was encountered while converting from the Keplerian elements to the Cartesian state.")
+} else if (const3 == TRUE){
+  print("Warning: A nearly parabolic orbit was encountered while converting from the Keplerian elements to the Cartesian state. The Keplerian elements are undefined for a parabolic orbit.")
+} else {   
+p0 = round(a0*(1 - e1^2)/1e+9,4)                              # Eq. (3.25)
+radius = p0/(1+e1*cos(v1))                                    # Eq. (3.26)
+
+print(paste("semilatus rectum = ", p0, "(km)"))
+print(paste("r = ", radius, "(km)"))
+
+
+}
+
+```
+
+```{r}
+
+#If |a(1−e)| < 0.001 then a singular conic section has been encountered while converting from the Keplerian elements to the Cartesian state. The radius of periapsis must be greater than 1 meter.
+
+const1 <- abs(a0*(1-e1))<0.001
+const2 <- 1+e1*cos(r1) < 1e-30
+const3 <- abs(1-e1) < 1e-7 
+const4 <- e1 > 1 & abs(vM)>=(pi-acos(1/e1))
+if (const1 == TRUE){
+  print("Warning: A nearly singular conic section was encountered while converting from the Keplerian elements to the Cartesian state.")
+} else if (const2 == TRUE){
+    print("Warning: A near infinite radius was encountered while converting from the Keplerian elements to the Cartesian state.")
+} else if (const3 == TRUE){
+  print("Warning: A nearly parabolic orbit was encountered while converting from the Keplerian elements to the Cartesian state. The Keplerian elements are undefined for a parabolic orbit.")
+} else if (const4 == TRUE){
+  limitTA = pi - acos(1/e1)                                   # Eq. (3.24)
+  print(paste("Error: The TA value is not physically possible for a hyperbolic orbit with the input values of SMA and ECC.The allowed values are: −", limitTA, "< TA <", limitTA, "(degrees)"))
+} else {   
+p0 = round(a0*(1 - e1^2)/1e+9,4)                              # Eq. (3.25)
+radius = p0/(1+e1*cos(v1))                                    # Eq. (3.26)
+
+print(paste("semilatus rectum = ", p0, "(km)"))
+print(paste("r = ", radius, "(km)"))
+
+
+}
+
+```
+
+
+If 1 + e0*cos(v1) < 1e-10, then the following warning is displayed but computation proceeds. “Warning: The orbital radius is large in the conversion from Keplerian to Cartesian state and the state may be near a
+singularity causing numerical errors in the conversion.”
+
+The position components of the cartesian state vector are calculated using the following three equations.
+
+```{r}
+const9 <- (abs(p0) < 1e-30)
+if(const9 == TRUE){
+  print("Warning: The algorithm does not support parabolic orbits in conversion
+from keplerian to cartesian elements.")
+} else { 
+x1 = (r1*(cos(omega0 + nu0)*cos(Omega0) - cos(i0)*sin(omega0 + nu0)*sin(Omega0)))/1 # Eq. (3.27)
+y1 = (r1*(cos(omega0 + nu0))*sin(Omega0) + cos(i0)*sin(omega0 + nu0)*cos(Omega0))/1  # Eq. (3.28)
+z1 = (r1*(sin(omega0 + nu0))*sin(i0))/1 # Eq. (3.29)
+}
+
+```
+
+Before calculating the velocity components we check to ensure the orbit is not parabolic. This avoids another possible division by zero. If
+(||p||<1e30), then error and return: “Warning: Cannot not support parabolic orbits in conversion from keplerian to cartesian elements”.
+
+If the orbit is not parabolic, we continue and calculate the velocity components using
+
+```{r}
+help1 <- sqrt(mu/p0)*(cos(v1)+e1)
+help2 <- (-sin(omega0)*cos(Omega0))-(cos(i0)*sin(Omega0)*cos(omega0))
+help3 <- sqrt(mu/p0)*sin(nu0)
+help4 <- (cos(omega0)*cos(Omega0))-(cos(i0)*sin(Omega0)*sin(omega0))
+help5 <- (-sin(omega0)*sin(Omega0))-(cos(i0)*cos(Omega0)*cos(omega0))
+help6 <- (cos(omega0)*sin(Omega0))-(cos(i0)*cos(Omega0)*sin(omega0))
+help7 <- (cos(v1)+e1)
+help8 <- (sin(i0)*cos(omega0) - sin(nu0)*sin(i0)*sin(omega0))
+
+x_dot <- (help1*help2-help3*help4)/1 # Eq. (3.30)
+y_dot <- (help1*help5-help3*help6)/1 # Eq. (3.31)
+z_dot <- (sqrt(mu/p0)*(help7*help8))/1 # Eq. (3.32)
+
+print(paste("semilatus rectum = ", p0, "(km)"))
+print(paste("r = ", radius, "(km)"))
+print(paste("x1 = ", x1, "(km)"))
+print(paste("y1 = ", y1, "(km)"))
+print(paste("z1 = ", z1, "(km)"))
+print(paste("x_dot = ", x_dot, "(km)"))
+print(paste("y_dot = ", y_dot, "(km)"))
+print(paste("z_dot = ", z_dot, "(km)"))
+
+```
+
+```{r}
+tab1 <- rbind(x1,y1,x1,x_dot, y_dot, z_dot)
+tab3 <- cbind("Vector Components", "Value")
+tab4 <- rbind("x comp of position", "y comp of position", "z comp of position", "x comp of velocity", "y comp of velocity", "z comp of velocity")
+tab5 <- cbind(tab4, tab1)
+rbind(tab3, tab5)
+
+library(knitr) 
+library(kableExtra) 
+kable(tab5, col.names=c('Parameter', 'Values'), caption = "Orbital Parameters and Range of Values", align='r', booktabs = T) %>%
+kable_styling(full_width = FALSE) %>%
+column_spec(1, width = "8cm")
+
+```
+
+
+## Equinoctial Elements to Cartesian State
+The equinoctial elements used in this algorithm are defined in Table 3.4. The algorithm to convert from equinoctial elements to the cartesian state was taken from the GTDS Mathematical Theory.
+
+Given: a, h, k, p, q, λ, and µ
+
+Find: "r"  and "v"
+
+We begin by using the mean longitude, λ, to find the eccentric longitude F. The equation relating the two is transcendental:
+
+$\lambda = F + h \cos{F} -k \sin{F}$
+
+
+```{r}
+M0=molniya$meanAnomaly*pi/180
+h0 = as.matrix(e0*sin(omega0+Omega0))
+h1 = norm(h0)
+k0 = as.matrix(e0*cos(omega0+Omega0))
+k1 = norm(k0)
+n0 = pracma::cross(as.matrix(c(0,0,1)),h0)
+n1 = norm(n0)
+F0 = as.vector(a0*e0)
+F0
+l0 = Omega0+omega0+M0
+print(paste("l0 =",l0))
+lambda = F0+h0*cos(F0)-k0*sin(F0)
+lambda
+
+```
+
+We use the Newton-Raphson method to solve for F, using λ as the initial guess. We iterate on the following equation until $|F(i + 1) − F(i)| < 10e−10$
+
+$F(i+1)=F(i)-f(F)/(f'(F))$
+
+where
+
+$f(F) = F + h cos(F) − k sin(F) − λ$ (3.35)
+$f′(F) = 1 − h sin(F) − k cos(F)$ (3.36)
+
+```{r}
+sprintf(x, fmt = '%#.3f') 
+F1 <- geodetic_matrix[,2] # geodetic longitude component
+
+
+fF = F0 + h1*cos(l0)-k1*sin(l0)-lambda  #Eq. (3.34)
+fpF = 1- h1*sin(l0)-k1*cos(l0)        # Eq. (3.35)
+
+fF0 = F0- fF/fpF  # Eq. (3.36)
+
+f1 <- (as.matrix(fF0))
+
+
+for (i in 1:2000) { 
+  
+    output <- F1[i]
+    outout <-as.matrix(output)
+    f1 = as.matrix(rbind(f1, output))
+    # Change in concavity = local minimum
+     if(output < 10e-10) {
+      break
+     }
+}
+
+nr = nrow(f1)
+l0 = f1[nr-1]
+print(paste("Optimal mean longitude =", l0/1000, "km"))
+
+```
+F[i]=-(geodetic_matrix[i,2] + h0*cos(geodetic_matrix[i,2]) - k0*sin(geodetic_matrix[i,2]) - lambda)/( 1 - h0*sin(geodetic_matrix[i,2]) - k0*cos(geodetic_matrix[i,2]))
+
+
+```{r, warning = FALSE}
+
+beta <- 1/(1+sqrt(abs(1-h1^2-k1^2))) # Eq. (3.37)
+print(paste('beta = ', beta))
+
+n1 <-sqrt(mu/abs(a0^2)) # Eq. (3.38)
+print(paste('n0 = ', n1[1]))
+
+r0 = a0*(1-k1*cos(l0)-h1*sin(l0))  # Eq. (3.39)
+print(paste('r0 = ', r0))
+
+X1=a0*((1-h1^2*beta)*cos(l0)+h1*k1*beta*sin(l0)-k1) # Eq. (3.40)
+print(paste('X1 = ', X1))
+
+Y1=a0*((1-k1^2*beta)*sin(l0)+h1*k1*beta*cos(l0)-h1) # Eq. (3.41)
+print(paste('Y1 = ', Y1))
+
+X1_dot=((n0*a0^2)/r1)*(h1*k1*beta*cos(l0)-(1-h1^2*beta)*sin(l0)) # Eq. (3.42)
+print(paste('X1_dot = ', X1_dot))
+
+Y1_dot=((n0*a0^2)/r1)*((1-k1^2*beta)*cos(l0)-h1*k1*beta*sin(l0)) # Eq. (3.43)
+print(paste('Y1_dot = ', Y1_dot))
+print("--------------------------------")
+if (X1_dot == 0 & Y1_dot == 0){
+  print("A change in concavity occures when X_dot=0 and y_dot=0, indicating a local oprtimal value")
+}  else {
+    print("The algorithm failed to converge")
+}
+
+```
+Recall that a derivative represents the instantaneous change of the function. Regarding the position vector, an instantaneous change represents velocity. Hence, when the velocity reaches a value of zero, it has stopped for an instant (i.e., smaller than nanoseconds) and the point that is stops is a loccl maximum or minimum (using the Newton-Raphson method). Then we only need to check where the concavity of the orbity changes again, indicating we have found the second optimal values. Then its a a simple matter of comparing the coordinators of the points were the space object has stopped.
+
+
+```{r}
+f0=as.matrix(a0*e0)
+g0=pracma::cross(h0,f0)
+
+r0= X1*f0 + Y1*g0 # Eq. (3.44)
+r0
+
+v0=X1_dot*f0 + Y1_dot*g0 # Eq. (3.45)
+v0
+
+```
+
+## Cartesian State to Equinoctial Elements
+
+The equinoctial elements used here are defined in Table 3.4. The algorithm to convert from the cartesian state to the equinoctial elements was taken from the GTDS Mathematical Theory.
+
+Given: "r" , "v" , and μ
+
+Find: a, h, k, p, q, λ, and μ
+
+
+```{r}
+M0=molniya$meanAnomaly*pi/180
+h0 = as.matrix(e0*sin(omega0+Omega0))
+h1 = norm(h0)
+k0 = as.matrix(e0*cos(omega0+Omega0))
+k1 = norm(k0)
+n0 = pracma::cross(as.matrix(c(0,0,1)),h0)
+n1 = norm(n0)
+F0 = as.vector(a0*e0)
+F0
+l0 = Omega0+omega0+M0
+print(paste("l0 =",l0))
+lambda = F0+h0*cos(F0)-k0*sin(F0)
+lambda
+
+```
+
+The orbit eccentricity and energy are calculated using
+
+```{r}
+library(superml)
+library(R6)
+r0 <- as.matrix(GCRF_coordinates$position) #new_state1$position
+v0 <- as.matrix(GCRF_coordinates$velocity) #new_state1$velocity
+
+r1 = norm(r0)                   #Eq. (3.48)
+v1 = norm(v0)                   #Eq. (3.49)
+
+e0 <- as.matrix(((v1^2-mu/r1)*r0-dot(r0,v0)*v0)/mu)  #Eq. (3.50)
+e1 = norm(e0)                   #Eq. (3.51)
+
+xi = (v1^2/2)-(mu/r1)           #Eq. (3.52)
+
+print(paste("r1 = ", r1))      
+print(paste("v1 = ", v1))
+print(paste("e1 = ", e1))
+print(paste("xi = ", xi))
+
+```
+
+For parabolic orbits, the semimajor axis is infinite and the energy is zero. Here we check to see if the orbit is near parabolic. If |1-e|<10^(-7) an error message is reported and conversion is aborted.
+
+The semimajor axis is computed using
+
+```{r}
+a0 <- -mu/(2*xi)                  #Eq. (3.53)
+print(paste("a0 = ", a0))
+
+```
+
+Here we check to see if the conic section is nearly singular. If |a(1-	e)|< 0.001(km) then an error message is thrown and conversion is aborted.
+The angular momentum unit vector is
+
+```{r}
+library(pracma)
+h0 = cross(r0,v0)/norm(cross(r0,v0))   #Eq. (3.54)
+print(paste("h1 = ",h0[1], "h2 = ",h0[2], "h3 = ",h0[3]))
+
+```
+
+The unit vectors that define the equinoctial coordinate system can be calculated using
+
+```{r}
+fx = 1-(h1[1]^2)/(1+h1[3])          #Eq. (3.55)
+fy = (h1[1]*h1[2])/(1+ h1[3])       #Eq. (3.56)
+fz = -h1[1]                         #Eq. (3.57)
+
+print(paste("fx =", fx))
+print(paste("fy =", fy))
+print(paste("fz =", fz))
+
+```
+
+
+```{r}
+g0=cross(h0,f0)       #Eq. (3.58)
+print(paste("g1 =", g0[1], "g2 =",g0[2], "g3 =",g0[3]))
+
+```
+
+We now have the necessary information to calculate the elements h, k, p, and q using the following relationships.
+
+```{r}
+h1 = dot(e0,g0)       #Eq. (3.59)
+k1 = dot(e0,f0)       #Eq. (3.60)
+
+p = h0[1]/(1+h0[3])       #Eq. (3.61)
+q = h0[2]/(1+h0[3])       #Eq. (3.62)
+
+print(paste("h1 =", h1))
+print(paste("k1 =", k1))
+print(paste("p =", p))
+print(paste("q =", q))
+
+```
+
+The final element to calculate is the mean longitude, λ. We begin by computing the eccentric longitude, F, using
+
+```{r}
+X1 = dot(r0,f0)       #Eq. (3.63)
+Y1 = dot(r0,g0)       #Eq. (3.64)
+
+print(paste("X1 =", X1))
+print(paste("Y1 =", Y1))
+
+```
+
+```{r}
+cosF = k1+(((1-k1^2*beta)*X1-h1*k1*beta*Y1)/(a0*sqrt(abs(1-h1^2-k1^2))))        #Eq. (3.65)
+sinF = k1+(((1-h1^2*beta)*Y1-h1*k1*beta*X1)/(a0*sqrt(abs(1-h1^2-k1^2))))        #Eq. (3.66)
+F_1 = atan(sinF/cosF)        #Eq. (3.67)
+
+print(paste("cosF =", cosF))
+print(paste("sinF =", sinF))
+print(paste("F_1 =", F_1))
+
+```
+
+where β is given by Eq. 3.37. The mean longitude is computed using the generalized Kepler equation
+
+```{r}
+lambda = F_1 + h1*cos(F_1) - k1*sin(F_1)       #Eq. (3.68)
+print(paste("lambda =", lambda))
+
+```
+
+## Cartesian State to SphericalAZFPA State
+
+The spherical state, with azimuth, α_f, and flight path angle, ψ, is described in Table 3.5 and Fig. 3.2. The algorithm below shows how e we convert from the cartesian state to the spherical state with azimuth and flight path angle.
+
+Given: "r"  and "v" 
+
+Find: r, λ, δ, v, ψ, and α_f
+
+We begin by calculating the right ascension λ, and the declination δ.
+
+```{r}
+r0 <- GCRF_coordinates$position #new_state1$position
+v0 <- GCRF_coordinates$velocity #new_state1$velocity
+
+r1 = norm(as.matrix(r0))                 #Eq. (3.69)
+lambda = atan2(abs(r0[1]),abs(r0[2]))    #Eq. (3.70)
+delta = asin(abs(r0[3])/r1)              #Eq. (3.71)
+
+print(paste("r1 =", r1))
+print(paste("lambda =", lambda))
+print(paste("delta =", delta))
+
+```
+
+The magnitude of the velocity vector is simply
+
+```{r}
+v1 <- norm(as.matrix(v0))        #Eq. (3.72)
+print(paste("v1 =", v1))
+
+```
+
+We calculate the vertical flight path angle, psi, using
+
+```{r}
+psi <- acos(dot(r0,v0)/(r1*v1))     #Eq. (3.73)
+print(paste("psi =", psi))
+
+```
+
+To calculate the azimuth angle, αz, we begin by calculating the rotation matrix from the frame in which the cartesian state is expressed in, Fi, to a local frame, Fℓ, where ˆz is a unit vector that points north. The basis vectors of Fℓ expressed in Fi can be calculated using
+
+```{r}
+x_hat=as.matrix(rbind(cos(delta)*cos(lambda),cos(delta)*sin(lambda),sin(delta))) #Eq. (3.74)
+
+y_hat=as.matrix(rbind(cos(lambda+pi/2),sin(lambda+pi/2),0)) #Eq. (3.75)
+
+z_hat=as.matrix(rbind(-sin(delta)*cos(lambda),-sin(delta)*sin(lambda),cos(delta)))  #Eq. (3.76)
+
+print(paste("x_hatx =", x_hat[1], "x_haty =", x_hat[2], "x_hatz =", x_hat[3]))
+print(paste("y_hatx =", y_hat[1], "x_haty =", x_hat[2], "y_hatz =", x_hat[3]))
+print(paste("z_hatx =", z_hat[1], "x_haty =", x_hat[2], "z_hatz =", x_hat[3]))
+
+```
+
+We can write the tranformation matrix that goes from Fi to Fℓ, Rℓi, as
+
+```{r}
+R_li <- t(as.matrix(x_hat,y_hat,z_hat))  #Eq. (3.77)
+print(paste("R_li =", R_li))
+
+```
+
+The velocity in the local frame, v′, can be written as
+v′ = Rℓiv
+
+```{r}
+v_prime<- R_li*v0                     #Eq. (3.78)
+print(paste("v_prime =", v_prime))
+
+```
+
+Finally, we calculate the azimuth angle using
+
+```{r}
+a_f = atan2(v_prime[2],v_prime[3])   #Eq. (3.79)
+print(paste("a_f =", a_f))
+
+```
+
+## SphericalAZFPA State to Cartesian State
+In this section we present the algorithm used to convert from the spherical state (with ψ and α_f) to the cartesian state.
+
+Given: r, λ, δ, v, ψ, and α_f
+
+Find: "r"  and "v" 
+
+The components of the position vector are calculated using
+
+```{r}
+x1=r1*cos(delta)*cos(lambda)	  # Eq.(3.80)
+y1=r1*cos(delta)*sin(lambda) 	# Eq.(3.81)
+z1=r1*sin(delta)	        # Eq.(3.82)
+
+print(paste("x1 =", x1))
+print(paste("y1 =", y1))
+print(paste("z1 =", z1))
+
+```
+
+We can write the velocity vector in terms of v, ψ, and αf as,
+
+```{r}
+v0 = v1*(cos(psi)*x_hat+sin(psi)*sin(a_f)*y_hat+sin(psi)*cos(a_f)*z_hat) # Eq. (3.83)
+print(paste("v0 =", v0))
+
+```
+
+where, $\hat{x}$, $\hat{y}$, and $\hat{z}$ are given in Eqs. (3.74), (3.75), and (3.76) respectively. Breaking down Eq. (3.83) into
+components gives us
+
+```{r}
+vx = v1*(cos(psi)*cos(delta)*cos(lambda)-sin(psi)*(sin(a_f)*sin(lambda)
++cos(a_f)*sin(delta)*cos(lambda)))
+# Eq. (3.84)
+vy = v1*(cos(psi)*cos(delta)*sin(lambda)+sin(psi)*(sin(a_f)*cos(lambda)
+-cos(a_f)*sin(delta)*sin(lambda)))
+# Eq. (3.85)
+vz = v1*(cos(psi)*sin(delta)+sin(psi)*cos(a_f)*cos(delta)) # Eq. (3.86)
+
+print(paste("vx =", vx))
+print(paste("vy =", vy))
+print(paste("vz =", vz))
+
+```
+
+## Cartesian State to SphericalRADEC State
+
+The conversion form the Cartesian state to the spherical state with right ascension of velocity, λv, and declination of velocity, δv, is very similar to the transformation shown in Sec. 3.1.6. The algorithm to calculate λv and δv is shown below.
+
+Given: r and v
+
+Find: r, λ, δ, v, λv, and δv
+
+To calculate r, λ, δ, and v we use Eqs. (3.69), (3.70), (3.71), and (3.72) respectively. The right ascension of velocity, λv, and declination of velocity, δv, are calculated using
+
+```{r}
+lambda_v = atan2(vy,vz)
+delta_v = asin(vz/v1)
+print(paste("lambda_v =", lambda_v))
+print(paste("delta_v =", delta_v))
+
+```
+
+In the next section, we show the the transformation from the spherical state with right ascension of velocity, λv, and declination of velocity, δv, to the cartesian state.
+
+## SphericalRADEC State to Cartesian State
+This transformation is similar to the conversion presented in Sec 3.1.7. The primary difference is how the velocity is represented.
+
+Given: r, λ, δ, v, λv, and δv
+
+Find: r and v
+
+The position components are calculated using Eqs. (3.80), (3.81), and (3.82). The velocity components are calculated using
+
+```{r}
+vx = v1*cos(lambda_v)*cos(delta_v) # Eq. (3.89)
+vy = vx*tan(lambda_v) # Eq. (3.90)
+vz = v1*sin(delta_v) # Eq. (3.91)
+
+print(paste("vx =", vx))
+print(paste("vy =", vy))
+print(paste("vz =", vz))
+
+```

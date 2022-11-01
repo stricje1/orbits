@@ -1,0 +1,236 @@
+---
+title: "MILSTAR Orbit via URL"
+author: "Jeffrey Strickland"
+date: "2022-10-23"
+output: word_document
+---
+
+```{r}
+knitr::opts_chunk$set(echo=TRUE, message=FALSE, fig.path='figures/', dpi=300, digits = 2)
+options(digits = 5, scipen = 100)
+hasData <- requireNamespace("asteRiskData", quietly = TRUE, cache = TRUE, autodep = TRUE, fig.align = "center", warning = FALSE, message = FALSE)
+if (!hasData) {                                                                 
+  evaluateExtraChunks <- FALSE                                             
+  msg <- strwrap("Note: some examples in this vignette require that the
+                 `asteRiskData` package be installed. The system
+                  currently running this vignette does not have that package
+                  installed, so code examples will not be evaluated.")
+  msg <- paste(msg, collapse="\n")
+  message(msg)                                                                   
+} else {
+  evaluateExtraChunks <- TRUE
+  library(asteRiskData)
+}
+```
+
+## Loar Libraries
+
+```{r}
+library(asteRisk)
+library(methods)
+library(XML)
+library(xml2)
+```
+
+## Download the TLE in XML format
+
+```{r}
+url <- ("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=xml")
+download_xml(
+  url,
+  file = basename("C:/Users/jeff/Documents/omm.xml"),
+  quiet = TRUE,
+  mode = "wb",
+  handle = curl::new_handle()
+)
+
+```
+
+## Parse the XML data
+
+```{r}
+omm <- xmlParse("C:/Users/jeff/Documents/omm.xml")
+satdat <- XML::xmlToDataFrame(omm)
+sat <- satdat$body[41]
+```
+
+## Extracting values with substring in R
+
+```{r}
+object_name <- substring(sat,1,21)
+object_id <- substring(sat,22,30)
+center_name <- substring(sat,31,35)
+ref_frame <- substring(sat,36,39)
+time_system <- substring(sat,40,42)
+propagator <- substring(sat,43,46)
+epoch <- substring(sat,47,72)
+mean_motion <- substring(sat,73,81)
+eccentricity <- substring(sat,82,90)
+inclination <- substring(sat,91,97)
+ascension <- substring(sat,98,104)
+arg_of_perigee <- substring(sat,105,112)
+mean_anomaly <- substring(sat,113,120)
+ephemeris_type <- substring(sat,121,121)
+classification <- substring(sat,122,122)
+norad_cat_no <- substring(sat,123,127)
+eleset_no <- substring(sat,128,130)
+rev_at_epoch <- substring(sat,131,134)
+bstar <- substring(sat,135,135)
+mean_motion_dot <- substring(sat,136,141)
+mean_motion_ddot <- substring(sat,142,142)
+```
+
+## Orbit Type Comparison
+
+```{r, warning=FALSE}
+print(paste("Object Name      :", object_name))
+print(paste("Object ID        :", object_id))
+print(paste("Center Name      :", center_name))
+print(paste("Reference Frame  :", ref_frame))
+print(paste("Time System      :", time_system))
+print(paste("Propagator       :", propagator))
+print(paste("Epoch            :", epoch))
+print(paste("Mean Motion      :", mean_motion))
+print(paste("Eccentricity     :", eccentricity))
+print(paste("Inclination      :", inclination))
+print(paste("RA of Ascension  :", ascension))
+print(paste("Arg of Perigee   :", arg_of_perigee))
+print(paste("Mean Anomaly     :", mean_anomaly))
+print(paste("Ephemeris Type   :", ephemeris_type))
+print(paste("Classification   :", classification))
+print(paste("NORAD Catalog No :", norad_cat_no))
+print(paste("Element Set No   :", eleset_no))
+print(paste("Rev at Epoch     :", rev_at_epoch))
+print(paste("B-star           :", bstar))
+print(paste("Mean Motion dot  :", mean_motion_dot))
+print(paste("MNean Motion ddot:", mean_motion_ddot))
+print(paste("------------------------------------"))
+
+```
+
+## Propagate the Orbit
+
+```{r}
+targetTimes <- seq(0, 2000, by=5)
+
+results_position_matrix1 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix1 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result1 <- sgdp4(n0=as.numeric(mean_motion)*((2*pi)/(1440)),
+                        e0=as.numeric(eccentricity),
+                        i0=	as.numeric(inclination)*pi/180,
+                        M0=as.numeric(mean_anomaly)*pi/180,
+                        omega0=as.numeric(arg_of_perigee)*pi/180,
+                        OMEGA0=as.numeric(ascension)*pi/180,
+                        Bstar=as.numeric(bstar),
+                        initialDateTime=epoch, 
+                        targetTime = targetTimes[i])
+    results_position_matrix1[i,] <- new_result1[[1]]
+    results_velocity_matrix1[i,] <- new_result1[[2]]
+}
+last_orb_propagation1 <- new_result1
+results_position_matrix1 = cbind(results_position_matrix1, targetTimes)
+colnames(results_position_matrix1) <- c("x", "y", "z", "time")
+
+# Let´s verify that the SDP4 algorithm was automatically chosen
+
+
+print(paste("Satellite 1 Name:",object_name))
+last_orb_propagation1
+
+```
+
+## Plot the Orbit
+
+```{r}
+library(plotly)
+
+out1<-as.data.frame(results_position_matrix1)
+
+out1<-as.data.frame(out1)
+
+
+fig <-  plot_ly()
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext = "Inclination = 0",
+   showlegend=TRUE,
+   name = 'MILSTAR-1',
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out1$x,
+   y = out1$y, 
+   z = out1$z
+) 
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext = "Inclination = 0",
+   showlegend=TRUE,
+   name = 'Earth',
+   type = 'scatter3d',
+   mode = 'marker',
+   marker=list(
+            color='skyblue',
+            size=15
+            ),
+   #size = I(2000),
+   x = 0,
+   y = 0, 
+   z = 0
+)
+
+fig
+#htmlwidgets::saveWidget(as_widget(fig), "mwe.html")
+
+```
+
+## Transfor the Reference Frame
+
+```{r}
+getLatestSpaceData(targets="all")
+new_dateTime <- "2022-10-23 13:37:18.623334"
+
+dateTime1 <- epoch
+
+
+ITRF_coordinates1 <- TEMEtoITRF(last_orb_propagation1$position,
+                               last_orb_propagation1$velocity,
+                               dateTime1)
+
+                               
+geodetic_matrix1 <-matrix(nrow=nrow(results_position_matrix1), ncol=3)
+
+
+for(i in 1:nrow(geodetic_matrix1)) {
+    new_dateTime1 <- as.character(as.POSIXct(dateTime1, tz = "UTC") + 60 * targetTimes[i])
+
+    new_geodetic1 <-TEMEtoLATLON(results_position_matrix1[i, 1:3]*1000,new_dateTime1)
+    geodetic_matrix1[i,] <- new_geodetic1
+ 
+}
+colnames(geodetic_matrix1) <- c("latitude1", "longitude1", "altitude1")
+
+```
+
+## Plot the Ground-Tracks
+
+```{r}
+library(ggmap)
+ggmap(get_map(c(left=-180, right=180, bottom=-80, top=80))) + 
+  geom_point(data=as.data.frame(geodetic_matrix1), aes(x=longitude1, y=latitude1), color="blue", size=2.5, alpha=0.8)
+
+```
+
+##  Print the Position Vector
+
+```{r}
+head(results_position_matrix1,25)
+```
+
+

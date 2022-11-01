@@ -1,0 +1,315 @@
+---
+title: "Chapter_13_Section_4"
+author: "Jeffrey Strickland"
+date: "2022-11-01"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, message=FALSE, fig.path='figures/', dpi=300, digits = 2)
+options(digits = 5, scipen = 100)
+```
+
+## Load Libraries
+
+```{r}
+library(asteRiskData)
+library(plotly)
+library(lazyeval)
+library(dplyr)
+library(pracma)
+```
+
+## Orbit Type Comparison
+
+```{r, warning=FALSE}
+meoTLEs <- readTLE(paste0(path.package("asteRisk"), "/newTLE.txt"))
+heoTLEs <- readTLE(paste0(path.package("asteRisk"), "/heoTLE.txt"))
+geoTLEs <- readTLE(paste0(path.package("asteRisk"), "/geoTLE.txt"))
+leoTLEs <- readTLE(paste0(path.package("asteRisk"), "/leoTLE.txt"))
+
+sat1 <- meoTLEs[[19]]
+sat2 <- leoTLEs[[13]]
+sat3 <- heoTLEs[[41]]
+sat4 <- geoTLEs[[60]]
+
+print(paste("Object Name:  ", sat1$objectName))
+print(paste("Launch Year:  ", sat1$launchYear))
+print(paste("Mean Motion:  ", sat1$meanMotion))
+print(paste("Mean Anomaly: ", sat1$meanAnomaly))
+print(paste("Eccentricity: ", sat1$eccentricity))
+print(paste("Ascension:    ", sat1$ascension))
+print(paste("Inclination:  ", sat1$inclination))
+print(paste("Perigee Arg:  ", sat1$perigeeArgument))
+print(paste("B-star:       ", sat1$Bstar))
+print(paste("Obital Period:", 1/sat1$meanMotion))
+print(paste("Observ Period:", round(i/sat1$meanMotion,0)))
+print(paste("------------------------------------"))
+print(paste("Object Name:  ", sat2$objectName))
+print(paste("Launch Year:  ", sat2$launchYear))
+print(paste("Mean Motion:  ", sat2$meanMotion))
+print(paste("Mean Anomaly: ", sat2$meanAnomaly))
+print(paste("Eccentricity: ", sat2$eccentricity))
+print(paste("Ascension:    ", sat2$ascension))
+print(paste("Inclination:  ", sat2$inclination))
+print(paste("Perigee Arg:  ", sat2$perigeeArgument))
+print(paste("B-star:       ", sat2$Bstar))
+print(paste("Obital Period:", 1/sat2$meanMotion))
+print(paste("Observ Period:", round(i/sat2$meanMotion,0)))
+print(paste("------------------------------------"))
+print(paste("Object Name:  ", sat3$objectName))
+print(paste("Launch Year:  ", sat3$launchYear))
+print(paste("Mean Motion:  ", sat3$meanMotion))
+print(paste("Mean Anomaly: ", sat3$meanAnomaly))
+print(paste("Eccentricity: ", sat3$eccentricity))
+print(paste("Ascension:    ", sat3$ascension))
+print(paste("Inclination:  ", sat3$inclination))
+print(paste("Perigee Arg:  ", sat3$perigeeArgument))
+print(paste("B-star:       ", sat3$Bstar))
+print(paste("Obital Period:", 1/sat3$meanMotion))
+print(paste("Observ Period:", round(i/sat3$meanMotion,0)))
+print(paste("------------------------------------"))
+print(paste("Object Name:  ", sat4$objectName))
+print(paste("Launch Year:  ", sat4$launchYear))
+print(paste("Mean Motion:  ", sat4$meanMotion))
+print(paste("Mean Anomaly: ", sat4$meanAnomaly))
+print(paste("Eccentricity: ", sat4$eccentricity))
+print(paste("Ascension:    ", sat4$ascension))
+print(paste("Inclination:  ", sat4$inclination))
+print(paste("Perigee Arg:  ", sat4$perigeeArgument))
+print(paste("B-star:       ", sat4$Bstar))
+print(paste("Obital Period:", 1/sat4$meanMotion))
+print(paste("Observ Period:", round(i/sat4$meanMotion,0)))
+
+```
+
+
+```{r}
+targetTimes <- seq(0, 3000, by=5)
+
+results_position_matrix1 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix1 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result1 <- sgdp4(n0=sat1$meanMotion*((2*pi)/(1440)),
+                        e0=sat1$eccentricity,
+                        i0=	sat1$inclination*pi/180,
+                        M0=sat1$meanAnomaly*pi/180,
+                        omega0=sat1$perigeeArgument*pi/180,
+                        OMEGA0=sat1$ascension*pi/180,
+                        Bstar=sat1$Bstar,
+                        initialDateTime=sat1$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix1[i,] <- new_result1[[1]]
+    results_velocity_matrix1[i,] <- new_result1[[2]]
+}
+last_orb_propagation1 <- new_result1
+results_position_matrix1 = cbind(results_position_matrix1, targetTimes)
+colnames(results_position_matrix1) <- c("x", "y", "z", "time")
+
+# Let´s verify that the SDP4 algorithm was automatically chosen
+
+results_position_matrix2 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix2 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result2 <- sgdp4(n0=sat2$meanMotion*((2*pi)/(1440)),
+                        e0=sat2$eccentricity,
+                        i0=	sat2$inclination*pi/180,
+                        M0=sat2$meanAnomaly*pi/180,
+                        omega0=sat2$perigeeArgument*pi/180,
+                        OMEGA0=sat2$ascension*pi/180,
+                        Bstar=sat2$Bstar,
+                        initialDateTime=sat2$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix2[i,] <- new_result2[[1]]
+    results_velocity_matrix2[i,] <- new_result2[[2]]
+}
+last_orb_propagation2 <- new_result2
+results_position_matrix2 = cbind(results_position_matrix2, targetTimes)
+colnames(results_position_matrix2) <- c("x", "y", "z", "time")
+
+
+results_position_matrix3 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix3 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result3 <- sgdp4(n0=sat3$meanMotion*((2*pi)/(1440)),
+                        e0=sat3$eccentricity,
+                        i0=	sat3$inclination*pi/180,
+                        M0=sat3$meanAnomaly*pi/180,
+                        omega0=sat3$perigeeArgument*pi/180,
+                        OMEGA0=sat3$ascension*pi/180,
+                        Bstar=sat3$Bstar,
+                        initialDateTime=sat3$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix3[i,] <- new_result3[[1]]
+    results_velocity_matrix3[i,] <- new_result3[[2]]
+}
+last_orb_propagation3 <- new_result3
+results_position_matrix3 = cbind(results_position_matrix3, targetTimes)
+colnames(results_position_matrix3) <- c("x", "y", "z", "time")
+
+
+results_position_matrix4 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix4 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result4 <- sgdp4(n0=sat4$meanMotion*((2*pi)/(1440)),
+                        e0=sat4$eccentricity,
+                        i0=	sat4$inclination*pi/180,
+                        M0=sat4$meanAnomaly*pi/180,
+                        omega0=sat4$perigeeArgument*pi/180,
+                        OMEGA0=sat4$ascension*pi/180,
+                        Bstar=sat4$Bstar,
+                        initialDateTime=sat4$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix4[i,] <- new_result4[[1]]
+    results_velocity_matrix4[i,] <- new_result4[[2]]
+}
+last_orb_propagation4 <- new_result4
+results_position_matrix4 = cbind(results_position_matrix4, targetTimes)
+colnames(results_position_matrix4) <- c("x", "y", "z", "time")
+
+
+print(paste("Satellite 1 Name:",sat1$objectName))
+last_orb_propagation1
+print(paste("Satellite 2 Name:",sat2$objectName))
+last_orb_propagation2
+print(paste("Satellite 3 Name:",sat3$objectName))
+last_orb_propagation3
+print(paste("Satellite 4 Name:",sat4$objectName))
+last_orb_propagation4
+
+```
+
+
+```{r}
+suppressMessages(library(plotly))
+
+out1<-as.data.frame(results_position_matrix1)
+out2<-as.data.frame(results_position_matrix2)
+out3<-as.data.frame(results_position_matrix3)
+out4<-as.data.frame(results_position_matrix4)
+out1<-as.data.frame(out1)
+out2<-as.data.frame(out2)
+out3<-as.data.frame(out3)
+out4<-as.data.frame(out4)
+
+fig <-  plot_ly()
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext = "Inclination = 0",
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out1$x,
+   y = out1$y, 
+   z = out1$z
+) 
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext ='Inclination = 15',
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out2$x,
+   y = out2$y, 
+   z = out2$z
+) 
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext ='Inclination = 30',
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out3$x,
+   y = out3$y, 
+   z = out3$z
+) 
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext ='Inclination = 45',
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out4$x,
+   y = out4$y, 
+   z = out4$z
+)
+
+fig
+#htmlwidgets::saveWidget(as_widget(fig), "mwe.html")
+
+```
+
+## Ground-Tracks
+
+```{r}
+new_dateTime <- "2006-06-25 12:33:43"
+
+dateTime1 <- sat1$dateTime
+dateTime2 <- sat2$dateTime
+dateTime3 <- sat3$dateTime
+dateTime4 <- sat4$dateTime
+
+ITRF_coordinates1 <- TEMEtoITRF(last_orb_propagation1$position,
+                               last_orb_propagation1$velocity,
+                               dateTime1)
+ITRF_coordinates2 <- TEMEtoITRF(last_orb_propagation2$position,
+                               last_orb_propagation2$velocity,
+                               dateTime2)
+ITRF_coordinates3 <- TEMEtoITRF(last_orb_propagation3$position,
+                               last_orb_propagation3$velocity,
+                               dateTime3)
+ITRF_coordinates4 <- TEMEtoITRF(last_orb_propagation4$position,
+                               last_orb_propagation4$velocity,
+                               dateTime4)
+                               
+geodetic_matrix1 <-matrix(nrow=nrow(results_position_matrix1), ncol=3)
+geodetic_matrix2 <-matrix(nrow=nrow(results_position_matrix2), ncol=3)
+geodetic_matrix3 <-matrix(nrow=nrow(results_position_matrix3), ncol=3)
+geodetic_matrix4 <-matrix(nrow=nrow(results_position_matrix4), ncol=3)
+
+for(i in 1:nrow(geodetic_matrix1)) {
+    new_dateTime1 <- as.character(as.POSIXct(dateTime1, tz = "UTC") + 60 * targetTimes[i])
+    new_dateTime2 <- as.character(as.POSIXct(dateTime2, tz = "UTC") + 60 * targetTimes[i])
+    new_dateTime3 <- as.character(as.POSIXct(dateTime3, tz = "UTC") + 60 * targetTimes[i])
+    new_dateTime4 <- as.character(as.POSIXct(dateTime4, tz = "UTC") + 60 * targetTimes[i])
+    new_geodetic1 <-TEMEtoLATLON(results_position_matrix1[i, 1:3]*1000,new_dateTime1)
+    geodetic_matrix1[i,] <- new_geodetic1
+    new_geodetic2 <-TEMEtoLATLON(results_position_matrix2[i, 1:3]*1000,new_dateTime2)
+    geodetic_matrix2[i,] <- new_geodetic2
+    new_geodetic3 <-TEMEtoLATLON(results_position_matrix3[i, 1:3]*1000,new_dateTime3)
+    geodetic_matrix3[i,] <- new_geodetic3
+    new_geodetic4 <-TEMEtoLATLON(results_position_matrix4[i, 1:3]*1000,new_dateTime4)
+    geodetic_matrix4[i,] <- new_geodetic4    
+}
+colnames(geodetic_matrix1) <- c("latitude1", "longitude1", "altitude1")
+colnames(geodetic_matrix2) <- c("latitude2", "longitude2", "altitude2")
+colnames(geodetic_matrix3) <- c("latitude3", "longitude3", "altitude3")
+colnames(geodetic_matrix4) <- c("latitude4", "longitude4", "altitude4")
+
+```
+
+
+```{r}
+ggmap(get_map(c(left=-180, right=180, bottom=-80, top=80))) + 
+  geom_point(data=as.data.frame(geodetic_matrix1), aes(x=longitude1, y=latitude1), color="blue", size=2.5, alpha=0.8)+
+  geom_point(data=as.data.frame(geodetic_matrix2), aes(x=longitude2, y=latitude2), color="yellow", size=2.5, alpha=0.8)+
+    geom_point(data=as.data.frame(geodetic_matrix3), aes(x=longitude3, y=latitude3), color="green", size=2.5, alpha=0.8)+
+  geom_point(data=as.data.frame(geodetic_matrix4), aes(x=longitude4, y=latitude4), color="red", size=2.5, alpha=0.8)
+
+```

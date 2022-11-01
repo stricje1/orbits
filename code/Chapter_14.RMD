@@ -1,0 +1,320 @@
+---
+title: "UntitledChapter_14"
+author: "Jeffrey Strickland"
+date: "2022-11-01"
+output: word_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, message=FALSE, fig.path='figures/', dpi=300, digits = 2)
+options(digits = 5, scipen = 100)
+```
+
+## Libraries
+
+```{r}
+library(asteRiskData)
+library(plotly)
+library(lazyeval)
+library(dplyr)
+library(pracma)
+```
+
+Consider an orbiting LEO object in a prograde equatorial orbit, with eccentricity 0.01 andorbital period 99.5 minutes, and whose initial state in Cartesian ECI coordinates is uncertain, with standard deviation = 1 km for each location coordinate and 0.005 km/sec for each velocity coordinate, where the uncertainties in all 6 coordinates are independent. These initial uncertainties are realistic and moderate.
+The state of the object has been propagated for 2.09 days (approximately 30.25 orbits for the central state). Propagated point clouds have represented as 6-dimensional pairs plot in Cartesian ECI (Fig. 1), Keplerian (Fig. 2) and Equinoctial (Fig. 3) coordinates. For all the examples we use N = 2000 data points to generate the point cloud. This value suffices to visualize key features in the pairs plots such as skewness, outliers, and approximate Gaussianity.
+
+
+```{r}
+mu = 3.986004418e14 # gravitational parameter
+vM = 0.05*pi # between -Pi and +Pi
+r0 <- GCRF_coordinates$position #new_state1$position
+v0 <- GCRF_coordinates$velocity #new_state1$velocity
+h0 = pracma::cross(r0,v0) # h vector cross product;    Eq. (3.1)
+# all five norm type are the same for vectors
+h1 = norm(as.matrix(h0))                     # Eq. (3.2)
+hz = h0[3]
+i0 = acos(hz/h1)
+id3 = as.vector(c(0,0,1))
+n0 = pracma::cross(id3, h0)                          # Eq. (3.3) 
+vM = 0.05*pi # between -Pi and +Pi
+r0 <- GCRF_coordinates$position #new_state1$position
+v0 <- GCRF_coordinates$velocity #new_state1$velocity
+h0 = pracma::cross(r0,v0) # h vector cross product;    Eq. (3.1)
+# all five norm type are the same for vectors
+h1 = norm(as.matrix(h0))                     # Eq. (3.2)
+hz = h0[3]
+i0 = acos(hz/h1)
+id3 = as.vector(c(0,0,1))
+                          
+```
+
+## Orbit Simulation Parameters
+
+```{r}
+set.seed(42)
+g = 6.67*10^(-11)
+gen_some_data = function(n_obs = 50) {
+  datetime = "2022-09-12 0:33:42.8348159988855"
+  mu = 3.986004418e14 # gravitational parameter
+  int_designator = seq(0, 10, length.out = n_obs)
+  eccentricity = runif(n = n_obs, min = 0, max = .9)
+  focal_param = round(runif(n = n_obs, min = 100, max = 400),4)
+  semi_latus_rectum = focal_param*eccentricity  
+  semimajor_axis = semi_latus_rectum/abs((1-eccentricity^2))
+  classification = sample(c("U", "C", "S"),size=n_obs,replace=TRUE)
+  periapsis  = round(runif(n = n_obs, min = 0, max = 360), 4)
+  inclination = round(runif(n = n_obs, min = 0, max = 180), 4)
+  mean_motion = 360/focal_param
+  mean_anomoly <- runif(n = n_obs, min = 0, max = 24) 
+  pos_y <- round(runif(n = n_obs, min = -1000, max = 1000),4)
+  pos_z <- round(runif(n = n_obs, min = -1000, max = 1000),4)
+  acos(dot(n0,e0)/(n1*e1))
+  OMEGA0 <- 80.0121*pi/round(runif(n = n_obs, min = 180, max = 360), 4)  
+  nu = round(runif(n = n_obs, min = 0, max = 360), 4)
+  longitudePerigee <- OMEGA0 + omega0
+  trueLongitude <- longitudePerigee + nu
+  day = round(runif(n = n_obs, min = 0, max = 24), 4)
+  Bstar <- 0.66816e-4 # drag coefficient
+  data.frame(mean_motion, semimajor_axis, semi_latus_rectum, eccentricity, periapsis, mean_anomoly, inclination, omega0, OMEGA0, trueLongitude, longitudePerigee, Bstar, datetime)
+}
+
+```
+
+# Calculation of the orbital period
+#2*pi/n0
+
+```{r, warning = FALSE}
+set.seed(123)
+orb_data = gen_some_data(n_obs = 5000)
+orb_tst = gen_some_data(n_obs = 800)
+orb_trn = gen_some_data(n_obs = 400)
+summary(orb_trn)
+```
+
+## Test
+
+```{r}
+orb_trn <- as.data.frame(orb_trn)
+orb_trn
+
+```
+
+### Propagate the Orbital Parameters
+
+```{r}
+targetTimes <- seq(0, 3000, by=5)
+
+results_position_matrix1 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix1 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result1 <- sgdp4(n0=orb_trn$mean_motion[50]*((2*pi)/(1440)),
+                     e0=orb_trn$eccentricity[50],
+                     i0=orb_trn$inclination[50]*pi/180,
+                     M0=orb_trn$mean_anomoly[50]*pi/180,
+                     omega0=orb_trn$omega0[50]*pi/180,
+                     OMEGA0=orb_trn$omega0[50]*pi/180,
+                     Bstar=orb_trn$Bstar[50],
+                     initialDateTime=orb_trn$datetime[50],
+                     targetTime = targetTimes[i])
+    results_position_matrix1[i,] <- new_result1[[1]]
+    results_velocity_matrix1[i,] <- new_result1[[2]]
+}
+last_orb_propagation1 <- new_result1
+results_position_matrix1 = cbind(results_position_matrix1, targetTimes)
+colnames(results_position_matrix1) <- c("x", "y", "z", "time")
+
+# Let´s verify that the SDP4 algorithm was automatically chosen
+
+results_position_matrix2 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix2 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result2 <- sgdp4(n0=orb_trn$mean_motion[10]*((2*pi)/(1440)),
+                     e0=orb_trn$eccentricity[10],
+                     i0=orb_trn$inclination[10]*pi/180,
+                     M0=orb_trn$mean_anomoly[10]*pi/180,
+                     omega0=orb_trn$omega0[10]*pi/180,
+                     OMEGA0=orb_trn$omega0[10]*pi/180,
+                     Bstar=orb_trn$Bstar[10],
+                     initialDateTime=orb_trn$datetime[10],
+                     targetTime = targetTimes[i])
+    results_position_matrix2[i,] <- new_result2[[1]]
+    results_velocity_matrix2[i,] <- new_result2[[2]]
+}
+last_orb_propagation2 <- new_result2
+results_position_matrix2 = cbind(results_position_matrix2, targetTimes)
+colnames(results_position_matrix2) <- c("x", "y", "z", "time")
+
+
+results_position_matrix3 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix3 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result3 <- sgdp4(n0=orb_trn$mean_motion[32]*((2*pi)/(1440)),
+                     e0=orb_trn$eccentricity[32],
+                     i0=orb_trn$inclination[32]*pi/180,
+                     M0=orb_trn$mean_anomoly[32]*pi/180,
+                     omega0=orb_trn$omega0[32]*pi/180,
+                     OMEGA0=orb_trn$omega0[32]*pi/180,
+                     Bstar=orb_trn$Bstar[32],
+                     initialDateTime=orb_trn$datetime[32],
+                     targetTime = targetTimes[i])
+    results_position_matrix3[i,] <- new_result3[[1]]
+    results_velocity_matrix3[i,] <- new_result3[[2]]
+}
+last_orb_propagation3 <- new_result3
+results_position_matrix3 = cbind(results_position_matrix3, targetTimes)
+colnames(results_position_matrix3) <- c("x", "y", "z", "time")
+
+
+results_position_matrix4 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix4 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result4 <- sgdp4(n0=orb_trn$mean_motion[7]*((2*pi)/(1440)),
+                     e0=orb_trn$eccentricity[7],
+                     i0=orb_trn$inclination[7]*pi/180,
+                     M0=orb_trn$mean_anomoly[7]*pi/180,
+                     omega0=orb_trn$omega0[7]*pi/180,
+                     OMEGA0=orb_trn$omega0[7]*pi/180,
+                     Bstar=orb_trn$Bstar[7],
+                     initialDateTime=orb_trn$datetime[7],
+                     targetTime = targetTimes[i])
+    results_position_matrix4[i,] <- new_result4[[1]]
+    results_velocity_matrix4[i,] <- new_result4[[2]]
+}
+last_orb_propagation4 <- new_result4
+results_position_matrix4 = cbind(results_position_matrix4, targetTimes)
+colnames(results_position_matrix4) <- c("x", "y", "z", "time")
+
+```
+
+### Plot the Simulated Orbits
+
+```{r}
+suppressMessages(library(plotly))
+
+out1<-as.data.frame(results_position_matrix1)
+out2<-as.data.frame(results_position_matrix2)
+out3<-as.data.frame(results_position_matrix3)
+out4<-as.data.frame(results_position_matrix4)
+out1<-as.data.frame(out1)
+out2<-as.data.frame(out2)
+out3<-as.data.frame(out3)
+out4<-as.data.frame(out4)
+
+fig <-  plot_ly()
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext = "Inclination = 0",
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out1$x,
+   y = out1$y, 
+   z = out1$z
+) 
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext ='Inclination = 15',
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out2$x,
+   y = out2$y, 
+   z = out2$z
+) 
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext ='Inclination = 30',
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out3$x,
+   y = out3$y, 
+   z = out3$z
+) 
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext ='Inclination = 45',
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out4$x,
+   y = out4$y, 
+   z = out4$z
+)
+
+fig
+#htmlwidgets::saveWidget(as_widget(fig), "mwe.html")
+```
+
+## Ground-Tracks
+
+```{r}
+
+dateTime1 <- orb_trn$datetime[50]
+dateTime2 <- orb_trn$datetime[10]
+dateTime3 <- orb_trn$datetime[32]
+dateTime4 <- orb_trn$datetime[7]
+
+ITRF_coordinates1 <- TEMEtoITRF(last_orb_propagation1$position,
+                               last_orb_propagation1$velocity,
+                               dateTime1)
+ITRF_coordinates2 <- TEMEtoITRF(last_orb_propagation2$position,
+                               last_orb_propagation2$velocity,
+                               dateTime2)
+ITRF_coordinates3 <- TEMEtoITRF(last_orb_propagation3$position,
+                               last_orb_propagation3$velocity,
+                               dateTime3)
+ITRF_coordinates4 <- TEMEtoITRF(last_orb_propagation4$position,
+                               last_orb_propagation4$velocity,
+                               dateTime4)
+                               
+geodetic_matrix1 <-matrix(nrow=nrow(results_position_matrix1), ncol=3)
+geodetic_matrix2 <-matrix(nrow=nrow(results_position_matrix2), ncol=3)
+geodetic_matrix3 <-matrix(nrow=nrow(results_position_matrix3), ncol=3)
+geodetic_matrix4 <-matrix(nrow=nrow(results_position_matrix4), ncol=3)
+
+for(i in 1:nrow(geodetic_matrix1)) {
+    new_dateTime1 <- as.character(as.POSIXct(dateTime1, tz = "UTC") + 60 * targetTimes[i])
+    new_dateTime2 <- as.character(as.POSIXct(dateTime2, tz = "UTC") + 60 * targetTimes[i])
+    new_dateTime3 <- as.character(as.POSIXct(dateTime3, tz = "UTC") + 60 * targetTimes[i])
+    new_dateTime4 <- as.character(as.POSIXct(dateTime4, tz = "UTC") + 60 * targetTimes[i])
+    new_geodetic1 <-TEMEtoLATLON(results_position_matrix1[i, 1:3]*1000,new_dateTime1)
+    geodetic_matrix1[i,] <- new_geodetic1
+    new_geodetic2 <-TEMEtoLATLON(results_position_matrix2[i, 1:3]*1000,new_dateTime2)
+    geodetic_matrix2[i,] <- new_geodetic2
+    new_geodetic3 <-TEMEtoLATLON(results_position_matrix3[i, 1:3]*1000,new_dateTime3)
+    geodetic_matrix3[i,] <- new_geodetic3
+    new_geodetic4 <-TEMEtoLATLON(results_position_matrix4[i, 1:3]*1000,new_dateTime4)
+    geodetic_matrix4[i,] <- new_geodetic4    
+}
+colnames(geodetic_matrix1) <- c("latitude1", "longitude1", "altitude1")
+colnames(geodetic_matrix2) <- c("latitude2", "longitude2", "altitude2")
+colnames(geodetic_matrix3) <- c("latitude3", "longitude3", "altitude3")
+colnames(geodetic_matrix4) <- c("latitude4", "longitude4", "altitude4")
+
+```
+
+
+```{r}
+ggmap(get_map(c(left=-180, right=180, bottom=-80, top=80))) + 
+  geom_point(data=as.data.frame(geodetic_matrix1), aes(x=longitude1, y=latitude1), color="blue", size=2.5, alpha=0.8)+
+  geom_point(data=as.data.frame(geodetic_matrix2), aes(x=longitude2, y=latitude2), color="yellow", size=2.5, alpha=0.8)+
+    geom_point(data=as.data.frame(geodetic_matrix3), aes(x=longitude3, y=latitude3), color="green", size=2.5, alpha=0.8)+
+  geom_point(data=as.data.frame(geodetic_matrix4), aes(x=longitude4, y=latitude4), color="red", size=2.5, alpha=0.8)
+
+```

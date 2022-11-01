@@ -1,0 +1,924 @@
+---
+title: "Chapter 12"
+author: "Jeffrey Strickland"
+date: "2022-11-01"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, message=FALSE, fig.path='figures/', dpi=300, digits = 2)
+options(digits = 5, scipen = 100)
+```
+
+## Eccentricity
+
+```{r}
+library(asteRiskData)
+library(plotly)
+library(lazyeval)
+library(dplyr)
+library(pracma)
+
+targetTimes <- seq(0, 4000, by=5)
+sat1<-test_TLEs[[7]]
+
+
+results_position_matrix1 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix1 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result1 <- sgdp4(n0=2.285378*((2*pi)/(1440)),
+                        e0=0.0,
+                        i0=46.7916*pi/180,
+                        M0=10.4117*pi/180,
+                        omega0=47.4722*pi/180,
+                        OMEGA0=230.4354*pi/180,
+                        Bstar=0.014311,
+                        initialDateTime=sat1$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix1[i,] <- new_result1[[1]]
+    results_velocity_matrix1[i,] <- new_result1[[2]]
+}
+last_orb_propagation1 <- new_result1
+results_position_matrix1 = cbind(results_position_matrix1, targetTimes)
+colnames(results_position_matrix1) <- c("x", "y", "z", "time")
+
+# Let´s verify that the SDP4 algorithm was automatically chosen
+
+results_position_matrix2 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix2 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result2 <- sgdp4(n0=2.285378*((2*pi)/(1440)),
+                        e0=0.3,
+                        i0=46.7916*pi/180,
+                        M0=10.4117*pi/180,
+                        omega0=47.4722*pi/180,
+                        OMEGA0=230.4354*pi/180,
+                        Bstar=0.014311,
+                        initialDateTime=sat1$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix2[i,] <- new_result2[[1]]
+    results_velocity_matrix2[i,] <- new_result2[[2]]
+}
+last_orb_propagation2 <- new_result2
+results_position_matrix2 = cbind(results_position_matrix2, targetTimes)
+colnames(results_position_matrix2) <- c("x", "y", "z", "time")
+
+
+results_position_matrix3 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix3 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result3 <- sgdp4(n0=2.285378*((2*pi)/(1440)),
+                        e0=0.6,
+                        i0=46.7916*pi/180,
+                        M0=10.4117*pi/180,
+                        omega0=47.4722*pi/180,
+                        OMEGA0=230.4354*pi/180,
+                        Bstar=0.014311,
+                        initialDateTime=sat1$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix3[i,] <- new_result3[[1]]
+    results_velocity_matrix3[i,] <- new_result3[[2]]
+}
+last_orb_propagation3 <- new_result3
+results_position_matrix3 = cbind(results_position_matrix3, targetTimes)
+colnames(results_position_matrix3) <- c("x", "y", "z", "time")
+
+
+results_position_matrix4 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix4 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result4 <- sgdp4(n0=2.285378*((2*pi)/(1440)),
+                        e0=0.9,
+                        i0=46.7916*pi/180,
+                        M0=10.4117*pi/180,
+                        omega0=47.4722*pi/180,
+                        OMEGA0=230.4354*pi/180,
+                        Bstar=0.014311,
+                        initialDateTime=sat1$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix4[i,] <- new_result4[[1]]
+    results_velocity_matrix4[i,] <- new_result4[[2]]
+}
+last_orb_propagation4 <- new_result4
+results_position_matrix4 = cbind(results_position_matrix4, targetTimes)
+colnames(results_position_matrix4) <- c("x", "y", "z", "time")
+
+```
+
+
+```{r}
+suppressMessages(library(plotly))
+
+out1<-as.data.frame(results_position_matrix1)
+out2<-as.data.frame(results_position_matrix2)
+out3<-as.data.frame(results_position_matrix3)
+out4<-as.data.frame(results_position_matrix4)
+out1<-as.data.frame(out1)
+out2<-as.data.frame(out2)
+out3<-as.data.frame(out3)
+out4<-as.data.frame(out4)
+
+fig <-  plot_ly()
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext = "Eccentricity = 0",
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out1$x,
+   y = out1$y, 
+   z = out1$z
+) 
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext ='Eccentricity = 0.3',
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out2$x,
+   y = out2$y, 
+   z = out2$z
+) 
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext ='Eccentricity = 0.6',
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out3$x,
+   y = out3$y, 
+   z = out3$z
+) 
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext ='Eccentricity = 9.9',
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out4$x,
+   y = out4$y, 
+   z = out4$z
+)
+
+fig
+#htmlwidgets::saveWidget(as_widget(fig), "mwe.html")
+
+```
+
+### Eccentricity Ground-Tracks
+
+```{r}
+
+dateTime1 <- sat1$dateTime
+dateTime2 <- sat1$dateTime
+dateTime3 <- sat1$dateTime
+dateTime4 <- sat1$dateTime
+
+ITRF_coordinates1 <- TEMEtoITRF(last_orb_propagation1$position,
+                               last_orb_propagation1$velocity,
+                               dateTime1)
+ITRF_coordinates2 <- TEMEtoITRF(last_orb_propagation2$position,
+                               last_orb_propagation2$velocity,
+                               dateTime2)
+ITRF_coordinates3 <- TEMEtoITRF(last_orb_propagation3$position,
+                               last_orb_propagation3$velocity,
+                               dateTime3)
+ITRF_coordinates4 <- TEMEtoITRF(last_orb_propagation4$position,
+                               last_orb_propagation4$velocity,
+                               dateTime4)
+                               
+geodetic_matrix1 <-matrix(nrow=nrow(results_position_matrix1), ncol=3)
+geodetic_matrix2 <-matrix(nrow=nrow(results_position_matrix2), ncol=3)
+geodetic_matrix3 <-matrix(nrow=nrow(results_position_matrix3), ncol=3)
+geodetic_matrix4 <-matrix(nrow=nrow(results_position_matrix4), ncol=3)
+
+for(i in 1:nrow(geodetic_matrix1)) {
+    new_dateTime1 <- as.character(as.POSIXct(dateTime1, tz = "UTC") + 60 * targetTimes[i])
+    new_dateTime2 <- as.character(as.POSIXct(dateTime2, tz = "UTC") + 60 * targetTimes[i])
+    new_dateTime3 <- as.character(as.POSIXct(dateTime3, tz = "UTC") + 60 * targetTimes[i])
+    new_dateTime4 <- as.character(as.POSIXct(dateTime4, tz = "UTC") + 60 * targetTimes[i])
+    new_geodetic1 <-TEMEtoLATLON(results_position_matrix1[i, 1:3]*1000,new_dateTime1)
+    geodetic_matrix1[i,] <- new_geodetic1
+    new_geodetic2 <-TEMEtoLATLON(results_position_matrix2[i, 1:3]*1000,new_dateTime2)
+    geodetic_matrix2[i,] <- new_geodetic2
+    new_geodetic3 <-TEMEtoLATLON(results_position_matrix3[i, 1:3]*1000,new_dateTime3)
+    geodetic_matrix3[i,] <- new_geodetic3
+    new_geodetic4 <-TEMEtoLATLON(results_position_matrix4[i, 1:3]*1000,new_dateTime4)
+    geodetic_matrix4[i,] <- new_geodetic4    
+}
+colnames(geodetic_matrix1) <- c("latitude1", "longitude1", "altitude1")
+colnames(geodetic_matrix2) <- c("latitude2", "longitude2", "altitude2")
+colnames(geodetic_matrix3) <- c("latitude3", "longitude3", "altitude3")
+colnames(geodetic_matrix4) <- c("latitude4", "longitude4", "altitude4")
+
+```
+
+
+```{r}
+ggmap(get_map(c(left=-180, right=180, bottom=-80, top=80))) + 
+  geom_point(data=as.data.frame(geodetic_matrix1), aes(x=longitude1, y=latitude1), color="blue", size=2.5, alpha=0.8)+
+  geom_point(data=as.data.frame(geodetic_matrix2), aes(x=longitude2, y=latitude2), color="yellow", size=2.5, alpha=0.8)+
+    geom_point(data=as.data.frame(geodetic_matrix3), aes(x=longitude3, y=latitude3), color="green", size=2.5, alpha=0.8)+
+  geom_point(data=as.data.frame(geodetic_matrix4), aes(x=longitude4, y=latitude4), color="red", size=2.5, alpha=0.8)
+
+```
+
+## Inclination
+
+```{r}
+targetTimes <- seq(0, 4000, by=5)
+sat1<-test_TLEs[[7]]
+
+
+results_position_matrix1 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix1 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result1 <- sgdp4(n0=0.006971845,
+                        e0=0,
+                        i0=0,
+                        M0=0,
+                        omega0=0,
+                        OMEGA0=0,
+                        Bstar=0,
+                        initialDateTime=sat1$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix1[i,] <- new_result1[[1]]
+    results_velocity_matrix1[i,] <- new_result1[[2]]
+}
+last_orb_propagation1 <- new_result1
+results_position_matrix1 = cbind(results_position_matrix1, targetTimes)
+colnames(results_position_matrix1) <- c("x", "y", "z", "time")
+
+# Let´s verify that the SDP4 algorithm was automatically chosen
+
+results_position_matrix2 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix2 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result2 <- sgdp4(n0=0.006971845,
+                        e0=0.0,
+                        i0=63.4,
+                        M0=0,
+                        omega0=0,
+                        OMEGA0=0,
+                        Bstar=0,
+                        initialDateTime=sat1$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix2[i,] <- new_result2[[1]]
+    results_velocity_matrix2[i,] <- new_result2[[2]]
+}
+last_orb_propagation2 <- new_result2
+results_position_matrix2 = cbind(results_position_matrix2, targetTimes)
+colnames(results_position_matrix2) <- c("x", "y", "z", "time")
+
+
+results_position_matrix3 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix3 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result3 <- sgdp4(n0=0.006971845,
+                        e0=0.0,
+                        i0=80,
+                        M0=0,
+                        omega0=0,
+                        OMEGA0=0,
+                        Bstar=0,
+                        initialDateTime=sat1$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix3[i,] <- new_result3[[1]]
+    results_velocity_matrix3[i,] <- new_result3[[2]]
+}
+last_orb_propagation3 <- new_result3
+results_position_matrix3 = cbind(results_position_matrix3, targetTimes)
+colnames(results_position_matrix3) <- c("x", "y", "z", "time")
+
+
+results_position_matrix4 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix4 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result4 <- sgdp4(n0=0.006971845,
+                        e0=0.0,
+                        i0=180,
+                        M0=0,
+                        omega0=0,
+                        OMEGA0=0,
+                        Bstar=0,
+                        initialDateTime=sat1$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix4[i,] <- new_result4[[1]]
+    results_velocity_matrix4[i,] <- new_result4[[2]]
+}
+last_orb_propagation4 <- new_result4
+results_position_matrix4 = cbind(results_position_matrix4, targetTimes)
+colnames(results_position_matrix4) <- c("x", "y", "z", "time")
+
+```
+
+
+```{r}
+suppressMessages(library(plotly))
+
+out1<-as.data.frame(results_position_matrix1)
+out2<-as.data.frame(results_position_matrix2)
+out3<-as.data.frame(results_position_matrix3)
+out4<-as.data.frame(results_position_matrix4)
+out1<-as.data.frame(out1)
+out2<-as.data.frame(out2)
+out3<-as.data.frame(out3)
+out4<-as.data.frame(out4)
+
+fig <-  plot_ly()
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext = "Inclination = 0",
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out1$x,
+   y = out1$y, 
+   z = out1$z
+) 
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext ='Inclination = 15',
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out2$x,
+   y = out2$y, 
+   z = out2$z
+) 
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext ='Inclination = 30',
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out3$x,
+   y = out3$y, 
+   z = out3$z
+) 
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext ='Inclination = 45',
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out4$x,
+   y = out4$y, 
+   z = out4$z
+)
+
+fig
+#htmlwidgets::saveWidget(as_widget(fig), "mwe.html")
+
+```
+
+### Inclination Ground-Tracks
+
+```{r}
+dateTime1 <- sat1$dateTime
+dateTime2 <- sat1$dateTime
+dateTime3 <- sat1$dateTime
+dateTime4 <- sat1$dateTime
+
+ITRF_coordinates1 <- TEMEtoITRF(last_orb_propagation1$position,
+                               last_orb_propagation1$velocity,
+                               dateTime1)
+ITRF_coordinates2 <- TEMEtoITRF(last_orb_propagation2$position,
+                               last_orb_propagation2$velocity,
+                               dateTime2)
+ITRF_coordinates3 <- TEMEtoITRF(last_orb_propagation3$position,
+                               last_orb_propagation3$velocity,
+                               dateTime3)
+ITRF_coordinates4 <- TEMEtoITRF(last_orb_propagation4$position,
+                               last_orb_propagation4$velocity,
+                               dateTime4)
+                               
+geodetic_matrix1 <-matrix(nrow=nrow(results_position_matrix1), ncol=3)
+geodetic_matrix2 <-matrix(nrow=nrow(results_position_matrix2), ncol=3)
+geodetic_matrix3 <-matrix(nrow=nrow(results_position_matrix3), ncol=3)
+geodetic_matrix4 <-matrix(nrow=nrow(results_position_matrix4), ncol=3)
+
+for(i in 1:nrow(geodetic_matrix1)) {
+    new_dateTime1 <- as.character(as.POSIXct(dateTime1, tz = "UTC") + 60 * targetTimes[i])
+    new_dateTime2 <- as.character(as.POSIXct(dateTime2, tz = "UTC") + 60 * targetTimes[i])
+    new_dateTime3 <- as.character(as.POSIXct(dateTime3, tz = "UTC") + 60 * targetTimes[i])
+    new_dateTime4 <- as.character(as.POSIXct(dateTime4, tz = "UTC") + 60 * targetTimes[i])
+    new_geodetic1 <-TEMEtoLATLON(results_position_matrix1[i, 1:3]*1000,new_dateTime1)
+    geodetic_matrix1[i,] <- new_geodetic1
+    new_geodetic2 <-TEMEtoLATLON(results_position_matrix2[i, 1:3]*1000,new_dateTime2)
+    geodetic_matrix2[i,] <- new_geodetic2
+    new_geodetic3 <-TEMEtoLATLON(results_position_matrix3[i, 1:3]*1000,new_dateTime3)
+    geodetic_matrix3[i,] <- new_geodetic3
+    new_geodetic4 <-TEMEtoLATLON(results_position_matrix4[i, 1:3]*1000,new_dateTime4)
+    geodetic_matrix4[i,] <- new_geodetic4    
+}
+colnames(geodetic_matrix1) <- c("latitude1", "longitude1", "altitude1")
+colnames(geodetic_matrix2) <- c("latitude2", "longitude2", "altitude2")
+colnames(geodetic_matrix3) <- c("latitude3", "longitude3", "altitude3")
+colnames(geodetic_matrix4) <- c("latitude4", "longitude4", "altitude4")
+
+```
+
+
+```{r}
+ggmap(get_map(c(left=-180, right=180, bottom=-80, top=80))) + 
+  geom_point(data=as.data.frame(geodetic_matrix1), aes(x=longitude1, y=latitude1), color="blue", size=2.5, alpha=0.8)+
+  geom_point(data=as.data.frame(geodetic_matrix2), aes(x=longitude2, y=latitude2), color="yellow", size=2.5, alpha=0.8)+
+    geom_point(data=as.data.frame(geodetic_matrix3), aes(x=longitude3, y=latitude3), color="green", size=2.5, alpha=0.8)+
+  geom_point(data=as.data.frame(geodetic_matrix4), aes(x=longitude4, y=latitude4), color="red", size=2.5, alpha=0.8)
+
+```
+
+
+============================================================
+
+## Mean Anomaly
+
+```{r}
+#getLatestSpaceData (targets="all")
+explorer_lines <- c("VANGUARD",
+"1 00016U 58002A   22266.39408941 -.00000059  00000-0 -67090-4 0  9990",
+"2 00016  34.2626 283.8544 2026875 128.9439 250.9929 10.48817812545765")
+
+explorer_TLE <- parseTLElines(explorer_lines)
+explorer_TLE
+
+```
+
+============================================================
+
+## Perigee Argument
+
+```{r}
+targetTimes <- seq(0, 3000, by=5)
+sat1<-test_TLEs[[7]]
+
+
+results_position_matrix1 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix1 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result1 <- sgdp4(n0=0.006971845,
+                        e0=0,
+                        i0=0,
+                        M0=0,
+                        omega0=15,
+                        OMEGA0=0,
+                        Bstar=0,
+                        initialDateTime=sat1$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix1[i,] <- new_result1[[1]]
+    results_velocity_matrix1[i,] <- new_result1[[2]]
+}
+last_orb_propagation1 <- new_result1
+results_position_matrix1 = cbind(results_position_matrix1, targetTimes)
+colnames(results_position_matrix1) <- c("x", "y", "z", "time")
+
+# Let´s verify that the SDP4 algorithm was automatically chosen
+
+results_position_matrix2 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix2 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result2 <- sgdp4(n0=0.006971845,
+                        e0=0.0,
+                        i0=5,
+                        M0=0,
+                        omega0=45,
+                        OMEGA0=0,
+                        Bstar=0,
+                        initialDateTime=sat1$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix2[i,] <- new_result2[[1]]
+    results_velocity_matrix2[i,] <- new_result2[[2]]
+}
+last_orb_propagation2 <- new_result2
+results_position_matrix2 = cbind(results_position_matrix2, targetTimes)
+colnames(results_position_matrix2) <- c("x", "y", "z", "time")
+
+
+results_position_matrix3 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix3 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result3 <- sgdp4(n0=0.006971845,
+                        e0=0.0,
+                        i0=180,
+                        M0=0,
+                        omega0=90,
+                        OMEGA0=0,
+                        Bstar=0,
+                        initialDateTime=sat1$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix3[i,] <- new_result3[[1]]
+    results_velocity_matrix3[i,] <- new_result3[[2]]
+}
+last_orb_propagation3 <- new_result3
+results_position_matrix3 = cbind(results_position_matrix3, targetTimes)
+colnames(results_position_matrix3) <- c("x", "y", "z", "time")
+
+
+results_position_matrix4 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix4 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result4 <- sgdp4(n0=0.006971845,
+                        e0=0.6,
+                        i0=63.4,
+                        M0=40,
+                        omega0=140,
+                        OMEGA0=190,
+                        Bstar=0.02,
+                        initialDateTime=sat1$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix4[i,] <- new_result4[[1]]
+    results_velocity_matrix4[i,] <- new_result4[[2]]
+}
+last_orb_propagation4 <- new_result4
+results_position_matrix4 = cbind(results_position_matrix4, targetTimes)
+colnames(results_position_matrix4) <- c("x", "y", "z", "time")
+
+```
+
+
+```{r}
+suppressMessages(library(plotly))
+
+out1<-as.data.frame(results_position_matrix1)
+out2<-as.data.frame(results_position_matrix2)
+out3<-as.data.frame(results_position_matrix3)
+out4<-as.data.frame(results_position_matrix4)
+out1<-as.data.frame(out1)
+out2<-as.data.frame(out2)
+out3<-as.data.frame(out3)
+out4<-as.data.frame(out4)
+
+fig <-  plot_ly()
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext = "Inclination = 0",
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out1$x,
+   y = out1$y, 
+   z = out1$z
+) 
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext ='Inclination = 15',
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out2$x,
+   y = out2$y, 
+   z = out2$z
+) 
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext ='Inclination = 30',
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out3$x,
+   y = out3$y, 
+   z = out3$z
+) 
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext ='Inclination = 45',
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out4$x,
+   y = out4$y, 
+   z = out4$z
+)
+
+fig
+#htmlwidgets::saveWidget(as_widget(fig), "mwe.html")
+
+```
+
+## Perigee Argument Ground-Tracks
+
+```{r}
+dateTime1 <- sat1$dateTime
+dateTime2 <- sat1$dateTime
+dateTime3 <- sat1$dateTime
+dateTime4 <- sat1$dateTime
+
+ITRF_coordinates1 <- TEMEtoITRF(last_orb_propagation1$position,
+                               last_orb_propagation1$velocity,
+                               dateTime1)
+ITRF_coordinates2 <- TEMEtoITRF(last_orb_propagation2$position,
+                               last_orb_propagation2$velocity,
+                               dateTime2)
+ITRF_coordinates3 <- TEMEtoITRF(last_orb_propagation3$position,
+                               last_orb_propagation3$velocity,
+                               dateTime3)
+ITRF_coordinates4 <- TEMEtoITRF(last_orb_propagation4$position,
+                               last_orb_propagation4$velocity,
+                               dateTime4)
+                               
+geodetic_matrix1 <-matrix(nrow=nrow(results_position_matrix1), ncol=3)
+geodetic_matrix2 <-matrix(nrow=nrow(results_position_matrix2), ncol=3)
+geodetic_matrix3 <-matrix(nrow=nrow(results_position_matrix3), ncol=3)
+geodetic_matrix4 <-matrix(nrow=nrow(results_position_matrix4), ncol=3)
+
+for(i in 1:nrow(geodetic_matrix1)) {
+    new_dateTime1 <- as.character(as.POSIXct(dateTime1, tz = "UTC") + 60 * targetTimes[i])
+    new_dateTime2 <- as.character(as.POSIXct(dateTime2, tz = "UTC") + 60 * targetTimes[i])
+    new_dateTime3 <- as.character(as.POSIXct(dateTime3, tz = "UTC") + 60 * targetTimes[i])
+    new_dateTime4 <- as.character(as.POSIXct(dateTime4, tz = "UTC") + 60 * targetTimes[i])
+    new_geodetic1 <-TEMEtoLATLON(results_position_matrix1[i, 1:3]*1000,new_dateTime1)
+    geodetic_matrix1[i,] <- new_geodetic1
+    new_geodetic2 <-TEMEtoLATLON(results_position_matrix2[i, 1:3]*1000,new_dateTime2)
+    geodetic_matrix2[i,] <- new_geodetic2
+    new_geodetic3 <-TEMEtoLATLON(results_position_matrix3[i, 1:3]*1000,new_dateTime3)
+    geodetic_matrix3[i,] <- new_geodetic3
+    new_geodetic4 <-TEMEtoLATLON(results_position_matrix4[i, 1:3]*1000,new_dateTime4)
+    geodetic_matrix4[i,] <- new_geodetic4    
+}
+colnames(geodetic_matrix1) <- c("latitude1", "longitude1", "altitude1")
+colnames(geodetic_matrix2) <- c("latitude2", "longitude2", "altitude2")
+colnames(geodetic_matrix3) <- c("latitude3", "longitude3", "altitude3")
+colnames(geodetic_matrix4) <- c("latitude4", "longitude4", "altitude4")
+
+```
+
+
+```{r}
+ggmap(get_map(c(left=-180, right=180, bottom=-80, top=80))) + 
+  geom_point(data=as.data.frame(geodetic_matrix1), aes(x=longitude1, y=latitude1), color="blue", size=2.5, alpha=0.8)+
+  geom_point(data=as.data.frame(geodetic_matrix2), aes(x=longitude2, y=latitude2), color="yellow", size=2.5, alpha=0.8)+
+    geom_point(data=as.data.frame(geodetic_matrix3), aes(x=longitude3, y=latitude3), color="green", size=2.5, alpha=0.8)+
+  geom_point(data=as.data.frame(geodetic_matrix4), aes(x=longitude4, y=latitude4), color="red", size=2.5, alpha=0.8)
+
+```
+
+## Ascension
+
+```{r}
+targetTimes <- seq(0, 3000, by=5)
+sat1<-test_TLEs[[7]]
+
+
+results_position_matrix1 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix1 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result1 <- sgdp4(n0=0.006971845,
+                        e0=0.2,
+                        i0=5,
+                        M0=0,
+                        omega0=45,
+                        OMEGA0=0,
+                        Bstar=0,
+                        initialDateTime=sat1$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix1[i,] <- new_result1[[1]]
+    results_velocity_matrix1[i,] <- new_result1[[2]]
+}
+last_orb_propagation1 <- new_result1
+results_position_matrix1 = cbind(results_position_matrix1, targetTimes)
+colnames(results_position_matrix1) <- c("x", "y", "z", "time")
+
+# Let´s verify that the SDP4 algorithm was automatically chosen
+
+results_position_matrix2 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix2 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result2 <- sgdp4(n0=0.006971845,
+                        e0=0.2,
+                        i0=5,
+                        M0=0,
+                        omega0=45,
+                        OMEGA0=30,
+                        Bstar=0,
+                        initialDateTime=sat1$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix2[i,] <- new_result2[[1]]
+    results_velocity_matrix2[i,] <- new_result2[[2]]
+}
+last_orb_propagation2 <- new_result2
+results_position_matrix2 = cbind(results_position_matrix2, targetTimes)
+colnames(results_position_matrix2) <- c("x", "y", "z", "time")
+
+
+results_position_matrix3 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix3 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result3 <- sgdp4(n0=0.006971845,
+                        e0=0.23,
+                        i0=5,
+                        M0=0,
+                        omega0=45,
+                        OMEGA0=180,
+                        Bstar=0,
+                        initialDateTime=sat1$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix3[i,] <- new_result3[[1]]
+    results_velocity_matrix3[i,] <- new_result3[[2]]
+}
+last_orb_propagation3 <- new_result3
+results_position_matrix3 = cbind(results_position_matrix3, targetTimes)
+colnames(results_position_matrix3) <- c("x", "y", "z", "time")
+
+
+results_position_matrix4 <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix4 <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+    new_result4 <- sgdp4(n0=0.009971845,
+                        e0=0.2,
+                        i0=5,
+                        M0=0,
+                        omega0=45,
+                        OMEGA0=300,
+                        Bstar=0.001,
+                        initialDateTime=sat1$dateTime, 
+                        targetTime = targetTimes[i])
+    results_position_matrix4[i,] <- new_result4[[1]]
+    results_velocity_matrix4[i,] <- new_result4[[2]]
+}
+last_orb_propagation4 <- new_result4
+results_position_matrix4 = cbind(results_position_matrix4, targetTimes)
+colnames(results_position_matrix4) <- c("x", "y", "z", "time")
+
+```
+
+
+```{r}
+suppressMessages(library(plotly))
+
+out1<-as.data.frame(results_position_matrix1)
+out2<-as.data.frame(results_position_matrix2)
+out3<-as.data.frame(results_position_matrix3)
+out4<-as.data.frame(results_position_matrix4)
+out1<-as.data.frame(out1)
+out2<-as.data.frame(out2)
+out3<-as.data.frame(out3)
+out4<-as.data.frame(out4)
+
+fig <-  plot_ly()
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext = "Inclination = 0",
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out1$x,
+   y = out1$y, 
+   z = out1$z
+) 
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext ='Inclination = 15',
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out2$x,
+   y = out2$y, 
+   z = out2$z
+) 
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext ='Inclination = 30',
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out3$x,
+   y = out3$y, 
+   z = out3$z
+) 
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext ='Inclination = 45',
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(6),
+   x = out4$x,
+   y = out4$y, 
+   z = out4$z
+)
+
+fig
+#htmlwidgets::saveWidget(as_widget(fig), "mwe.html")
+
+```
+
+## Ascension Ground-Tracks
+
+```{r}
+dateTime1 <- sat1$dateTime
+dateTime2 <- sat1$dateTime
+dateTime3 <- sat1$dateTime
+dateTime4 <- sat1$dateTime
+
+ITRF_coordinates1 <- TEMEtoITRF(last_orb_propagation1$position,
+                               last_orb_propagation1$velocity,
+                               dateTime1)
+ITRF_coordinates2 <- TEMEtoITRF(last_orb_propagation2$position,
+                               last_orb_propagation2$velocity,
+                               dateTime2)
+ITRF_coordinates3 <- TEMEtoITRF(last_orb_propagation3$position,
+                               last_orb_propagation3$velocity,
+                               dateTime3)
+ITRF_coordinates4 <- TEMEtoITRF(last_orb_propagation4$position,
+                               last_orb_propagation4$velocity,
+                               dateTime4)
+                               
+geodetic_matrix1 <-matrix(nrow=nrow(results_position_matrix1), ncol=3)
+geodetic_matrix2 <-matrix(nrow=nrow(results_position_matrix2), ncol=3)
+geodetic_matrix3 <-matrix(nrow=nrow(results_position_matrix3), ncol=3)
+geodetic_matrix4 <-matrix(nrow=nrow(results_position_matrix4), ncol=3)
+
+for(i in 1:nrow(geodetic_matrix1)) {
+    new_dateTime1 <- as.character(as.POSIXct(dateTime1, tz = "UTC") + 60 * targetTimes[i])
+    new_dateTime2 <- as.character(as.POSIXct(dateTime2, tz = "UTC") + 60 * targetTimes[i])
+    new_dateTime3 <- as.character(as.POSIXct(dateTime3, tz = "UTC") + 60 * targetTimes[i])
+    new_dateTime4 <- as.character(as.POSIXct(dateTime4, tz = "UTC") + 60 * targetTimes[i])
+    new_geodetic1 <-TEMEtoLATLON(results_position_matrix1[i, 1:3]*1000,new_dateTime1)
+    geodetic_matrix1[i,] <- new_geodetic1
+    new_geodetic2 <-TEMEtoLATLON(results_position_matrix2[i, 1:3]*1000,new_dateTime2)
+    geodetic_matrix2[i,] <- new_geodetic2
+    new_geodetic3 <-TEMEtoLATLON(results_position_matrix3[i, 1:3]*1000,new_dateTime3)
+    geodetic_matrix3[i,] <- new_geodetic3
+    new_geodetic4 <-TEMEtoLATLON(results_position_matrix4[i, 1:3]*1000,new_dateTime4)
+    geodetic_matrix4[i,] <- new_geodetic4    
+}
+colnames(geodetic_matrix1) <- c("latitude1", "longitude1", "altitude1")
+colnames(geodetic_matrix2) <- c("latitude2", "longitude2", "altitude2")
+colnames(geodetic_matrix3) <- c("latitude3", "longitude3", "altitude3")
+colnames(geodetic_matrix4) <- c("latitude4", "longitude4", "altitude4")
+
+```
+
+
+```{r}
+ggmap(get_map(c(left=-180, right=180, bottom=-80, top=80))) + 
+  geom_point(data=as.data.frame(geodetic_matrix1), aes(x=longitude1, y=latitude1), color="blue", size=2.5, alpha=0.8)+
+  geom_point(data=as.data.frame(geodetic_matrix2), aes(x=longitude2, y=latitude2), color="yellow", size=2.5, alpha=0.8)+
+    geom_point(data=as.data.frame(geodetic_matrix3), aes(x=longitude3, y=latitude3), color="green", size=2.5, alpha=0.8)+
+  geom_point(data=as.data.frame(geodetic_matrix4), aes(x=longitude4, y=latitude4), color="red", size=2.5, alpha=0.8)
+
+```

@@ -1,0 +1,131 @@
+---
+title: "Test Case 2"
+author: "Jeffrey Strickland"
+date: "2022-09-22"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Test Case 2
+The next code chunks loads a random object from the test TLEs, propagates its state vectors from the orbital parameters, updates the date-time, and plots the ground track. Here, we get the object name and its orbital period.
+
+```{r}
+library(asteRisk)
+test_TLEs <- readTLE(paste0(path.package("asteRisk"), "/testTLE.txt"))
+sample.int(22,1)
+randSAT_TLE <- test_TLEs[[9]]
+obj_name <- randSAT_TLE$objectName
+obital_period <- 1/randSAT_TLE$meanMotion
+print(paste("Object Name:", obj_name))
+print(paste("Obital Preiod:", obital_period ))
+```
+The randomly selected object is the SL-6 R/B(2) satellite with a perigee of 82.48 
+
+SL-6 R?B(2) has an orbital period or 0.2047 day. So 8is we want to look at a 5-orbit gorund track, we compute $orbital period \mult 24 (hours/day) x 60 (minutes/hour) x 5 (orbits), with position readings every 5 minutes. So, we calculate that result as well as print the orbital parameters, below.
+
+```{r}
+orb_period<-(1/randSAT_TLE$meanMotion)
+observation_period<-orb_period*24*60
+
+print(paste("Object Name:  ", randSAT_TLE$objectName))
+print(paste("Mean Motion:  ", randSAT_TLE$meanMotion))
+print(paste("Mean Anomaly: ", randSAT_TLE$meanAnomaly))
+print(paste("Eccentricity: ", randSAT_TLE$eccentricity))
+print(paste("Ascension:    ", randSAT_TLE$ascension))
+print(paste("Inclination:  ", randSAT_TLE$inclination))
+print(paste("Perigee Arg:  ", randSAT_TLE$perigeeArgument))
+print(paste("B-star:       ", randSAT_TLE$Bstar))
+print(paste("Obital Period:", 1/randSAT_TLE$meanMotion))
+print(paste("Observ Period:", round(4*observation_period,0)))
+```
+
+So we set our target times to 5895 position readings taken every five minutes minutes
+
+```{r}
+
+targetTimes <- seq(0, 1179, by=5)
+
+results_position_matrix <- matrix(nrow=length(targetTimes), ncol=3)
+results_velocity_matrix <- matrix(nrow=length(targetTimes), ncol=3)
+
+for(i in 1:length(targetTimes)) {
+  new_result<- sgdp4(n0=randSAT_TLE$meanMotion*((2*pi)/(1440)),
+                     e0=randSAT_TLE$eccentricity,
+                     i0=randSAT_TLE$inclination*pi/180,
+                     M0=randSAT_TLE$meanAnomaly*pi/180,
+                     omega0=randSAT_TLE$perigeeArgument*pi/180,
+                     OMEGA0=randSAT_TLE$ascension*pi/180,
+                     Bstar=randSAT_TLE$Bstar,
+                     initialDateTime=randSAT_TLE$dateTime,
+                     targetTime = targetTimes[i])
+    results_position_matrix[i,] <- new_result[[1]]
+    results_velocity_matrix[i,] <- new_result[[2]]
+}
+
+last_orb_propagation <- new_result
+last_orb_propagation$algorithm
+results_position_matrix = cbind(results_position_matrix, targetTimes)
+colnames(results_position_matrix) <- c("x", "y", "z", "time")
+
+```
+Notice that we have a deep space satellite and the algorithm chose the SPD4 propagator model, which is correct.
+
+To map the ground track, we convert from the TEME reference frame to geodetic coordinates.
+
+```{r}
+new_dateTime <- "2018-06-25 12:33:43"
+
+ITRF_coordinates <- TEMEtoITRF(last_orb_propagation$position,
+                               last_orb_propagation$velocity,
+                               new_dateTime)
+
+geodetic_matrix <-matrix(nrow=nrow(results_position_matrix), ncol=3)
+
+for(i in 1:nrow(geodetic_matrix)) {
+  new_dateTime <- as.character(as.POSIXct(randSAT_TLE$dateTime, tz = "UTC") + 60 * targetTimes[i])
+  new_geodetic <-TEMEtoLATLON(results_position_matrix[i, 1:3]*1000, new_dateTime)
+  geodetic_matrix[i,] <- new_geodetic
+}
+
+colnames(geodetic_matrix) <- c("latitude", "longitude", "altitude")
+```
+
+Before we map the ground track, we plot the orbit to compare with the mapped ground track.
+
+```{r}
+library(plotly)
+out<-as.data.frame(results_position_matrix)
+fig <-  plot_ly()
+
+fig <- add_trace(
+   fig,
+   visible=TRUE,
+   hovertext = "Eccentricity = 0",
+   showlegend=TRUE,
+   type = 'scatter3d',
+   mode = 'line',
+   size = I(4),
+   x = out$x,
+   y = out$y, 
+   z = out$z
+) 
+fig
+```
+
+Finally, we plot the ground track using ggmap.
+
+```{r} 
+library(ggmap)
+
+ggmap(get_map(c(left=-180, right=180, bottom=-80, top=80))) +
+  geom_point(data=as.data.frame(geodetic_matrix), aes(x=longitude, y=latitude), color="red", size=1, alpha=0.8) +
+  annotate("label", x=-3, y=75, label = randSAT_TLE$objectName,
+    colour = I("red"), size = 3.5)
+```
+
+```{r}
+test_TLEs[[1]]$objectName;test_TLEs[[2]]$objectName;test_TLEs[[3]]$objectName;test_TLEs[[4]]$objectName;test_TLEs[[5]]$objectName;test_TLEs[[6]]$objectName;test_TLEs[[7]]$objectName;test_TLEs[[8]]$objectName;test_TLEs[[9]]$objectName;test_TLEs[[10]]$objectName
+```
